@@ -1,0 +1,8 @@
+Baldur's Gate 3 - Adventure Report
+
+Character: Tylor Alandt
+Level: 7
+Gold: 800.00
+
+Location            Hours     Enemies
+  Moonrise Towers     26.00     1000      
