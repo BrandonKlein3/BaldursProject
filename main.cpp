@@ -1,3 +1,8 @@
+#ifdef _DEBUG
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN //only works while in debug
+#include "doctest.h"
+#endif
+
 #include <iostream>
 #include <iomanip>
 #include <string>
@@ -6,10 +11,19 @@
 using namespace std;
 
 // Goal: Track player character and multiple play sessions while practicing C++ fundamentals
+
+// Constants
+// Avoids magic numbers and improves readability.
+const int MAX_SESSIONS = 10;
+const int MIN_LEVEL = 1;
+const int MAX_LEVEL = 12;
+const int MAX_ENEMIES = 1000;
+
+
 // Enum represents the possible difficuly recommendation that will be used later in switch
 // statements and conditional logic
 enum Difficulty {
-	EXPLORER,
+	EXPLORER = 1,
 	BALANCED,
 	TACTICIAN
 };
@@ -31,12 +45,49 @@ struct Session {
 	int enemiesDefeated;
 };
 
-// Constants
-// Avoids magic numbers and improves readability.
-const int MAX_SESSIONS = 10;
-const int MIN_LEVEL = 1;
-const int MAX_LEVEL = 12;
-const int MAX_ENEMIES = 1000;
+double calculateTotalHours(const Session session[], int count);
+
+int calculateTotalEnemies(const Session sessions[], int count);
+
+// AdventureTracker class for unit testing and session management
+class AdventureTracker {
+private:
+	Session sessions[MAX_SESSIONS];
+	int sessionCount;
+
+public:
+	// Constructor
+	AdventureTracker() {
+		sessionCount = 0;
+	}
+
+	// Add a session safely (non-interactive, testable)
+	bool addSession(const Session& s) {
+		if (sessionCount >= MAX_SESSIONS) {
+			return false;
+		}
+
+		sessions[sessionCount] = s;
+		sessionCount++;
+		return true;
+	}
+
+	// Getter for session count
+	int getSessionCount() const {
+		return sessionCount;
+	}
+
+	// Total hours using internal array
+	double getTotalHours() const {
+		return calculateTotalHours(sessions, sessionCount);
+	}
+
+	// Total enemies using intenal array
+	int getTotalEnemies() const {
+		return calculateTotalEnemies(sessions, sessionCount);
+	}
+};
+
 
 // Structs are passed by reference to avoid unnecessary copying
 
@@ -60,18 +111,32 @@ void addSession(Session sessions[], int& count);
 void displaySessions(const Session sessions[], int count);
 
 // Calculations & decisions
-double calculateTotalHours(const Session session[], int count);
+
 void recommendDifficulty(const Character& player, const Session sessions[], int count);
+double calculateAverageEnemies(const Session sessions[], int count);
+double calculateKillRate(const Session sessions[], int count);
+double calculateGoldPerHour(double gold, double totalHours);
+
+// Enum-based recommendation (testable)
+Difficulty recommendDifficultyByStats(int level, double avgHours);
+
+// Struct / array processing helpers
+
+double findLongestSession(const Session sessions[], int count);
 
 // File output
 void saveReport(const Character& player, const Session sessions[], int count);
 
 
-
+#ifndef _DEBUG
 int main() {
+	// creates one instance of player
 	Character player;
+	// creates an array of sessions controlled by max sessions
 	Session sessions[MAX_SESSIONS];
+	// tracks how many sessions
 	int sessionCount = 0;
+	// variable to store users choice
 	int choice;
 
 	displayBanner();
@@ -105,7 +170,7 @@ int main() {
 
 	return 0;
 }
-
+#endif
 
 
 // Banner Function
@@ -206,6 +271,9 @@ void displaySessions(const Session sessions[], int count) {
 
 	double totalHours = calculateTotalHours(sessions, count);
 	cout << "\nTotal Hours Played: " << totalHours << endl;
+
+	double longest = findLongestSession(sessions, count);
+	cout << "Longest Session (hours): " << longest << endl;
 }
 
 // Validation Functions
@@ -282,22 +350,99 @@ void recommendDifficulty(const Character& player, const Session sessions[], int 
 	}
 
 	double avgHours = calculateTotalHours(sessions, count) / count;
+	double avgEnemies = calculateAverageEnemies(sessions, count);
+	double killRate = calculateKillRate(sessions, count);
+
+	cout << "Average Enemies per Session: " << avgEnemies << endl;
+	cout << "Kill Rate (enemies/hour): " << killRate << endl;
+
+
+	Difficulty rec = recommendDifficultyByStats(player.level, avgHours);
 
 	cout << "\n=== Difficulty Recommendation ===\n";
 
-	if (player.level < 5 && avgHours > 4) {
-		cout << "Recommendation: Explorer\n";
-	}
-	else if (player.level >= 5 && player.level <= 8 && avgHours >= 3) {
-		cout << "Recommendation: Balanced\n";
-	}
-	else if (player.level > 8 && avgHours >= 5) {
-		cout << "Recommendation: Tactician\n";
-	}
-	else {
-		cout << "Recommendation: Balanced\n";
+	switch (rec) {
+		case EXPLORER: cout << "Recommendation: Explorer\n"; break;
+		case BALANCED: cout << "Recommendation: Balanced\n"; break;
+		case TACTICIAN: cout << "Recommendation: Tactician\n"; break;
 	}
 }
+
+// Calculate Avg Enemies killed per session
+double calculateAverageEnemies(const Session sessions[], int count) {
+	if (count <= 0) return 0.0;
+
+	int totalEnemies = 0;
+	for (int i = 0; i < count; i++) {
+		totalEnemies += sessions[i].enemiesDefeated;
+	}
+
+	return static_cast<double>(totalEnemies) / count;
+}
+
+// Calculate kill rate
+double calculateKillRate(const Session sessions[], int count) {
+	double totalHours = calculateTotalHours(sessions, count);
+	if (totalHours <= 0.0) return 0.0;
+
+	int totalEnemies = 0;
+	for (int i = 0; i < count; i++) {
+		totalEnemies += sessions[i].enemiesDefeated;
+	}
+
+	return totalEnemies / totalHours;
+}
+
+// Calculate gold per hour
+double calculateGoldPerHour(double gold, double totalHours) {
+	if (totalHours <= 0.0) return 0.0;
+	if (gold < 0.0) return 0.0;
+
+	return gold / totalHours;
+}
+
+// Recommend difficulty by stats
+Difficulty recommendDifficultyByStats(int level, double avgHours) {
+	if (level < 5 && avgHours > 4.0) {
+		return EXPLORER;
+	}
+	else if (level >= 5 && level <= 8 && avgHours >= 3.0) {
+		return BALANCED;
+	}
+	else if (level > 8 && avgHours >= 5.0) {
+		return TACTICIAN;
+	}
+	else {
+		return BALANCED;
+	}
+}
+
+// Calculate total enemies
+int calculateTotalEnemies(const Session sessions[], int count) {
+	if (count <= 0) return 0;
+
+	int total = 0;
+	for (int i = 0; i < count; i++) {
+		total += sessions[i].enemiesDefeated;
+	}
+
+	return total;
+}
+
+// Find longest session
+double findLongestSession(const Session sessions[], int count) {
+	if (count <= 0) return 0.0;
+
+	double longest = sessions[0].hoursPlayed;
+	for (int i = 1; i < count; i++) {
+		if (sessions[i].hoursPlayed > longest) {
+			longest = sessions[i].hoursPlayed;
+		}
+	}
+
+	return longest;
+}
+
 
 // File Output
 void saveReport(const Character& player, const Session sessions[], int count) {
@@ -318,3 +463,108 @@ void saveReport(const Character& player, const Session sessions[], int count) {
 	outFile.close();
 	cout << "Report saved to report.txt\n";
 }
+
+
+
+#ifdef _DEBUG
+
+// ===================== UNIT TESTS =====================
+
+// ---------- A) Calculations (at least 4 tests) ----------
+
+TEST_CASE("calculateTotalHours normal case") {
+	Session sessions[2] = {
+		{"Goblin Camp", 2.5, 10},
+		{"Underdark", 3.0, 20}
+	};
+
+	double result = calculateTotalHours(sessions, 2);
+	CHECK(result == doctest::Approx(5.5));
+}
+
+TEST_CASE("calculateTotalHours edge case - zero sessions") {
+	Session sessions[1];
+	double result = calculateTotalHours(sessions, 0);
+	CHECK(result == 0.0);
+}
+
+TEST_CASE("calculateGoldPerHour normal case") {
+	double result = calculateGoldPerHour(100.0, 5.0);
+	CHECK(result == doctest::Approx(20.0));
+}
+
+TEST_CASE("calculateGoldPerHour guard case - divide by zero") {
+	double result = calculateGoldPerHour(100.0, 0.0);
+	CHECK(result == 0.0);
+}
+
+
+// ---------- B) Enum decision logic (at least 3 tests) ----------
+
+TEST_CASE("recommendDifficultyByStats returns Explorer") {
+	Difficulty d = recommendDifficultyByStats(3, 5.0);
+	CHECK(d == EXPLORER);
+}
+
+TEST_CASE("recommendDifficultyByStats returns Balanced") {
+	Difficulty d = recommendDifficultyByStats(6, 3.5);
+	CHECK(d == BALANCED);
+}
+
+TEST_CASE("recommendDifficultyByStats returns Tactician") {
+	Difficulty d = recommendDifficultyByStats(10, 6.0);
+	CHECK(d == TACTICIAN);
+}
+
+
+// ---------- C) Struct / array processing (at least 3 tests) ----------
+
+TEST_CASE("calculateTotalEnemies normal case") {
+	Session sessions[2] = {
+		{"Forest", 2.0, 5},
+		{"Dungeon", 3.0, 15}
+	};
+
+	int total = calculateTotalEnemies(sessions, 2);
+	CHECK(total == 20);
+}
+
+TEST_CASE("calculateAverageEnemies one session") {
+	Session sessions[1] = {
+		{"Ruins", 1.5, 12}
+	};
+
+	double avg = calculateAverageEnemies(sessions, 1);
+	CHECK(avg == doctest::Approx(12.0));
+}
+
+TEST_CASE("findLongestSession edge case - zero sessions") {
+	Session sessions[1];
+	double longest = findLongestSession(sessions, 0);
+	CHECK(longest == 0.0);
+}
+
+
+// ---------- D) Class methods (at least 2 tests) ----------
+
+TEST_CASE("AdventureTracker addSession and getSessionCount") {
+	AdventureTracker tracker;
+
+	Session s = { "Shadow Cursed Lands", 4.0, 30 };
+	bool added = tracker.addSession(s);
+
+	CHECK(added == true);
+	CHECK(tracker.getSessionCount() == 1);
+}
+
+TEST_CASE("AdventureTracker getTotalHours") {
+	AdventureTracker tracker;
+
+	tracker.addSession({ "Camp", 2.0, 5 });
+	tracker.addSession({ "Tower", 3.5, 12 });
+
+	double total = tracker.getTotalHours();
+	CHECK(total == doctest::Approx(5.5));
+}
+
+#endif

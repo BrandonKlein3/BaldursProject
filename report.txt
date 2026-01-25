@@ -1,8 +1,9 @@
 Baldur's Gate 3 - Adventure Report
 
-Character: Tylor Alandt
-Level: 7
-Gold: 800.00
+Character: Brandon Klein
+Level: 5
+Gold: 100.00
 
 Location            Hours     Enemies
-  Moonrise Towers     26.00     1000      
+  Goblin Camp         10.00     100       
+Druids Grove        15.00     5         
