@@ -1,23 +1,32 @@
-name: C++ Unit Tests
+name: C++ doctest (Windows)
 
 on:
   push:
-    branches: [ "main" ]
   pull_request:
-    branches: [ "main" ]
 
 jobs:
-  build-and-test:
-    runs-on: ubuntu-latest
+  test:
+    runs-on: windows-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Install build tools
-      run: sudo apt-get update && sudo apt-get install -y g++
+      # Set up MSVC (cl.exe)
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
 
-    - name: Build and run unit tests
-      run: |
-        g++ -std=c++17 -D_DEBUG AdventureTracker.cpp -o tests
-        ./tests
+      - name: Build tests
+        shell: cmd
+        run: |
+          REM Compile AdventureTracker.cpp in TEST MODE
+          REM /D_DEBUG enables doctest and disables program main()
+          REM /EHsc = standard C++ exception handling
+          REM /std:c++17 = C++17 standard
+
+          cl /nologo /EHsc /std:c++17 /D_DEBUG AdventureTracker.cpp /Fe:tests.exe
+
+      - name: Run tests
+        shell: cmd
+        run: |
+          tests.exe
