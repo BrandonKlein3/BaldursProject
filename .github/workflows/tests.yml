@@ -19,12 +19,12 @@ jobs:
       - name: Build tests
         shell: cmd
         run: |
-          REM Compile AdventureTracker.cpp in TEST MODE
+          REM Compile main.cpp in TEST MODE
           REM /D_DEBUG enables doctest and disables program main()
           REM /EHsc = standard C++ exception handling
           REM /std:c++17 = C++17 standard
 
-          cl /nologo /EHsc /std:c++17 /D_DEBUG AdventureTracker.cpp /Fe:tests.exe
+          cl /nologo /EHsc /std:c++17 /D_DEBUG main.cpp /Fe:tests.exe
 
       - name: Run tests
         shell: cmd
