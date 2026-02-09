@@ -1,0 +1,53 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ClassDiagram MajorVersion="1" MinorVersion="1" GroupingSetting="Access" MembersFormat="FullSignature">
+  <Class Name="PlaySession">
+    <Position X="5" Y="0.75" Width="3.75" />
+    <TypeIdentifier>
+      <HashCode>AAYIAAABAAAAIRAAAACAAEACACAAAAACAAAAAAAAAAA=</HashCode>
+      <FileName>main.cpp</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="LootInfo">
+    <Position X="9" Y="0.75" Width="2.75" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAIAgAAgAEAAAAAAgAAAAACAAAAAAAEAAAgAA=</HashCode>
+      <FileName>main.cpp</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="CombatSession">
+    <Position X="3.25" Y="5.25" Width="6.25" />
+    <TypeIdentifier>
+      <HashCode>AARAAABgAAAAgAAAAAAAAAAAAAQAAAAAAAAAAAAAAAA=</HashCode>
+      <FileName>main.cpp</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="ExplorationSession">
+    <Position X="10.25" Y="5.25" Width="6.25" />
+    <TypeIdentifier>
+      <HashCode>AAQAAAAAAAgAgAQCAAAAAAAAAAAAAAAAIAAAAAAAAAA=</HashCode>
+      <FileName>main.cpp</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Class Name="AdventureTracker">
+    <Position X="12" Y="0.75" Width="2.75" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAIAAAAAIAAAAAgACAAAAAIEAAAAAAAAAAAABAA=</HashCode>
+      <FileName>main.cpp</FileName>
+    </TypeIdentifier>
+  </Class>
+  <Struct Name="Character">
+    <Position X="15" Y="0.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAQABAAAAAAAAAAAAAAAAAAEEAAAAAAAAAAAAAAA=</HashCode>
+      <FileName>main.cpp</FileName>
+    </TypeIdentifier>
+  </Struct>
+  <Enum Name="Difficulty">
+    <Position X="15" Y="2.75" Width="1.5" />
+    <TypeIdentifier>
+      <HashCode>AAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAACAAAABAAA=</HashCode>
+      <FileName>main.cpp</FileName>
+    </TypeIdentifier>
+  </Enum>
+  <Font Name="Segoe UI" Size="9" />
+</ClassDiagram>

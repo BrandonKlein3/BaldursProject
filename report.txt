@@ -1,9 +1,10 @@
 Baldur's Gate 3 - Adventure Report
 
 Character: Brandon Klein
-Level: 5
-Gold: 100.00
+Level: 12
+Gold: 5000.00
 
-Location            Hours     Enemies
-  Goblin Camp         10.00     100       
-Druids Grove        15.00     5         
+Session 1:
+
+Session 2:
+

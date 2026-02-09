@@ -1,4 +1,4 @@
-#ifdef _DEBUG
+﻿#ifdef _DEBUG
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN //only works while in debug
 #include "doctest.h"
 #endif
@@ -37,22 +37,145 @@ struct Character {
 	Difficulty difficulty;
 };
 
-// One individual BG3 play session
-// Sessions are stored in an array so the program can track multiple entries over time
-struct Session {
+// Class for play sessions BASE CLASS
+class PlaySession {
+protected:
 	string location;
-	double hoursPlayed;
-	int enemiesDefeated;
+	int durationMinutes;
+	Difficulty difficulty;
+
+public:
+	PlaySession()
+		: location("Unknown"), durationMinutes(0), difficulty(EXPLORER) {
+	}
+
+	PlaySession(const string& loc, int duration, Difficulty diff)
+		: location(loc), durationMinutes(duration), difficulty(diff) {
+	}
+
+	string getLocation() const { return location; }
+	int getDuration() const { return durationMinutes; }
+	Difficulty getDifficulty() const { return difficulty; }
+
+	void setLocation(const string& loc) { location = loc; }
+	void setDuration(int duration) { durationMinutes = duration; }
+	void setDifficulty(Difficulty diff) { difficulty = diff; }
+
+	virtual void print() const {
+		cout << "Location: " << location << endl;
+		cout << "Duration (minutes): " << durationMinutes << endl;
+	}
+
+	virtual ~PlaySession() {}
 };
 
-double calculateTotalHours(const Session session[], int count);
 
-int calculateTotalEnemies(const Session sessions[], int count);
+int calculateTotalDuration(const PlaySession* const sessions[], int count);
+int calculateTotalEnemies(const PlaySession* const sessions[], int count);
+
+
+// Class for loot info COMPOSITION CLASS
+class LootInfo {
+private:
+	int goldEarned;
+	bool rareItemFound;
+
+public:
+	LootInfo() : goldEarned(0), rareItemFound(false) {}
+	LootInfo(int gold, bool rare)
+		: goldEarned(gold), rareItemFound(rare) {
+	}
+
+	int getGoldEarned() const { return goldEarned; }
+	bool hasRareItem() const { return rareItemFound; }
+
+	void setGoldEarned(int gold) { goldEarned = gold; }
+	void setRareItem(bool rare) { rareItemFound = rare; }
+
+	bool isProfitable() const {
+		return goldEarned > 0;
+	}
+
+};
+
+
+// DERIVED CLASS Combat Session
+class CombatSession : public PlaySession {
+private:
+	int enemiesDefeated;
+	LootInfo loot;		// composition
+
+public:
+	CombatSession()
+		: PlaySession(), enemiesDefeated(0), loot() {
+	}
+
+	CombatSession(const string& loc, int duration, Difficulty diff,
+		int enemies, const LootInfo& lootInfo)
+		: PlaySession(loc, duration, diff),
+		enemiesDefeated(enemies),
+		loot(lootInfo) {
+	}
+
+	int getEnemiesDefeated() const {
+		return enemiesDefeated;
+	}
+
+	void setEnemiesDefeated(int enemies) {
+		enemiesDefeated = enemies;
+	}
+
+	void print() const {
+		PlaySession::print();   // REQUIRED
+
+		cout << "Enemies Defeated: " << enemiesDefeated << endl;
+		cout << "Gold Earned: " << loot.getGoldEarned() << endl;
+		cout << "Rare Item Found: "
+			<< (loot.hasRareItem() ? "Yes" : "No") << endl;
+	}
+
+};
+
+
+// DERIVED CLASS ExplorationSession
+class ExplorationSession : public PlaySession {
+private:
+	int areasDiscovered;
+	LootInfo loot;    // composition
+
+public:
+	ExplorationSession()
+		: PlaySession(), areasDiscovered(0), loot() {
+	}
+
+	ExplorationSession(const string& loc, int duration,
+		Difficulty diff, int areas, const LootInfo& lootInfo)
+		: PlaySession(loc, duration, diff),
+		areasDiscovered(areas),
+		loot(lootInfo) {
+	}
+
+	int getAreasDiscovered() const {
+		return areasDiscovered;
+	}
+
+	void setAreasDiscovered(int areas) {
+		areasDiscovered = areas;
+	}
+
+	void print() const {
+		PlaySession::print();   // REQUIRED
+
+		cout << "Areas Discovered: " << areasDiscovered << endl;
+		cout << "Gold Earned: " << loot.getGoldEarned() << endl;
+	}
+
+};
 
 // AdventureTracker class for unit testing and session management
 class AdventureTracker {
 private:
-	Session sessions[MAX_SESSIONS];
+	const PlaySession* sessions[MAX_SESSIONS];
 	int sessionCount;
 
 public:
@@ -62,15 +185,12 @@ public:
 	}
 
 	// Add a session safely (non-interactive, testable)
-	bool addSession(const Session& s) {
-		if (sessionCount >= MAX_SESSIONS) {
-			return false;
-		}
-
-		sessions[sessionCount] = s;
-		sessionCount++;
+	bool addSession(const PlaySession* s) {
+		if (sessionCount >= MAX_SESSIONS) return false;
+		sessions[sessionCount++] = s;
 		return true;
 	}
+
 
 	// Getter for session count
 	int getSessionCount() const {
@@ -79,8 +199,9 @@ public:
 
 	// Total hours using internal array
 	double getTotalHours() const {
-		return calculateTotalHours(sessions, sessionCount);
+		return calculateTotalDuration(sessions, sessionCount) / 60.0;
 	}
+
 
 	// Total enemies using intenal array
 	int getTotalEnemies() const {
@@ -106,26 +227,25 @@ string getValidString(const string& prompt);
 int getValidInt(const string& prompt, int min, int max);
 double getValidDouble(const string& prompt, double min);
 
-// Session fuctions
-void addSession(Session sessions[], int& count);
-void displaySessions(const Session sessions[], int count);
 
 // Calculations & decisions
 
-void recommendDifficulty(const Character& player, const Session sessions[], int count);
-double calculateAverageEnemies(const Session sessions[], int count);
-double calculateKillRate(const Session sessions[], int count);
+void recommendDifficulty(const Character& player, const PlaySession* sessions[], int count);
 double calculateGoldPerHour(double gold, double totalHours);
 
 // Enum-based recommendation (testable)
 Difficulty recommendDifficultyByStats(int level, double avgHours);
 
-// Struct / array processing helpers
+// Transformed functions from old struct
+void addSession(const PlaySession* sessions[], int& count);
+void displaySessions(const PlaySession* sessions[], int count);
+double calculateAverageEnemies(const PlaySession* sessions[], int count);
+double calculateKillRate(const PlaySession* sessions[], int count);
+double findLongestSession(const PlaySession* const sessions[], int count);
 
-double findLongestSession(const Session sessions[], int count);
 
 // File output
-void saveReport(const Character& player, const Session sessions[], int count);
+void saveReport(const Character& player, const PlaySession* sessions[], int count);
 
 
 #ifndef _DEBUG
@@ -133,7 +253,7 @@ int main() {
 	// creates one instance of player
 	Character player;
 	// creates an array of sessions controlled by max sessions
-	Session sessions[MAX_SESSIONS];
+	const PlaySession* sessions[MAX_SESSIONS];
 	// tracks how many sessions
 	int sessionCount = 0;
 	// variable to store users choice
@@ -237,44 +357,59 @@ void displayCharacterSummary(const Character& player) {
 // Menu items
 
 // Adds data to session array
-void addSession(Session sessions[], int& count) {
+void addSession(const PlaySession* sessions[], int& count) {
 	if (count >= MAX_SESSIONS) {
 		cout << "Session limit reached.\n";
 		return;
 	}
 
-	cout << "\n=== Add New Sessions ===\n";
+	cout << "\n1. Combat Session\n";
+	cout << "2. Exploration Session\n";
 
-	sessions[count].location = getValidString("Enter location name: ");
-	sessions[count].hoursPlayed = getValidDouble("Enter hours played: ", 0.1);
-	sessions[count].enemiesDefeated = getValidInt("Enter enemies defeated: ", 0, MAX_ENEMIES);
+	int type = getValidInt("Choose session type: ", 1, 2);
 
-	count++;
+	string location = getValidString("Enter location: ");
+	int duration = getValidInt("Enter duration (minutes): ", 1, 600);
 
-	cout << "Session added successfully!\n";
+	cout << "Difficulty:\n1. Explorer\n2. Balanced\n3. Tactician\n";
+	Difficulty diff = static_cast<Difficulty>(
+		getValidInt("Choice: ", 1, 3)
+		);
+
+	int gold = getValidInt("Gold earned: ", 0, 100000);
+	bool rare = getValidInt("Rare item found? (1=yes, 0=no): ", 0, 1);
+	LootInfo loot(gold, rare);
+
+	if (type == 1) {
+		int enemies = getValidInt("Enemies defeated: ", 0, MAX_ENEMIES);
+		sessions[count++] =
+			new CombatSession(location, duration, diff, enemies, loot);
+	}
+	else {
+		int areas = getValidInt("Areas discovered: ", 0, 100);
+		sessions[count++] =
+			new ExplorationSession(location, duration, diff, areas, loot);
+	}
+
+	cout << "Session added.\n";
 }
 
-void displaySessions(const Session sessions[], int count) {
+
+void displaySessions(const PlaySession* sessions[], int count) {
 	if (count == 0) {
 		cout << "No sessions recorded.\n";
 		return;
 	}
 
 	cout << "\n=== Session Summary ===\n";
-	cout << left << setw(20) << "Location" << setw(10) << "Hours" << setw(10) << "Enemies\n";
-
-	cout << "----------------------------------------\n";
 
 	for (int i = 0; i < count; i++) {
-		cout << left << setw(20) << sessions[i].location << setw(10) << fixed << setprecision(2) << sessions[i].hoursPlayed << setw(10) << sessions[i].enemiesDefeated << endl;
+		sessions[i]->print();   
+		cout << "-----------------\n";
 	}
-
-	double totalHours = calculateTotalHours(sessions, count);
-	cout << "\nTotal Hours Played: " << totalHours << endl;
-
-	double longest = findLongestSession(sessions, count);
-	cout << "Longest Session (hours): " << longest << endl;
 }
+
+
 
 // Validation Functions
 
@@ -332,66 +467,70 @@ double getValidDouble(const string& prompt, double min) {
 }
 
 // Calculate Total Hours
-double calculateTotalHours(const Session sessions[], int count) {
-	double total = 0.0;
-
+int calculateTotalDuration(const PlaySession* const sessions[], int count) {
+	int total = 0;
 	for (int i = 0; i < count; i++) {
-		total += sessions[i].hoursPlayed;
+		total += sessions[i]->getDuration();
 	}
-
 	return total;
 }
 
+
+
 // Calculate Recommended Difficulty
-void recommendDifficulty(const Character& player, const Session sessions[], int count) {
+void recommendDifficulty(const Character& player, const PlaySession* sessions[], int count) {
 	if (count == 0) {
-		cout << "No sessions available for recommendation.\n";
+		cout << "No sessions available.\n";
 		return;
 	}
 
-	double avgHours = calculateTotalHours(sessions, count) / count;
-	double avgEnemies = calculateAverageEnemies(sessions, count);
-	double killRate = calculateKillRate(sessions, count);
-
-	cout << "Average Enemies per Session: " << avgEnemies << endl;
-	cout << "Kill Rate (enemies/hour): " << killRate << endl;
-
+	int totalMinutes = calculateTotalDuration(sessions, count);
+	double avgHours = (totalMinutes / 60.0) / count;
 
 	Difficulty rec = recommendDifficultyByStats(player.level, avgHours);
 
 	cout << "\n=== Difficulty Recommendation ===\n";
-
 	switch (rec) {
-		case EXPLORER: cout << "Recommendation: Explorer\n"; break;
-		case BALANCED: cout << "Recommendation: Balanced\n"; break;
-		case TACTICIAN: cout << "Recommendation: Tactician\n"; break;
+	case EXPLORER: cout << "Explorer\n"; break;
+	case BALANCED: cout << "Balanced\n"; break;
+	case TACTICIAN: cout << "Tactician\n"; break;
 	}
 }
+
+
 
 // Calculate Avg Enemies killed per session
-double calculateAverageEnemies(const Session sessions[], int count) {
-	if (count <= 0) return 0.0;
+double calculateAverageEnemies(const PlaySession* sessions[], int count) {
+	if (count == 0) return 0.0;
 
 	int totalEnemies = 0;
+	int combatCount = 0;
+
 	for (int i = 0; i < count; i++) {
-		totalEnemies += sessions[i].enemiesDefeated;
+		const CombatSession* combat =
+			dynamic_cast<const CombatSession*>(sessions[i]);
+
+		if (combat) {
+			totalEnemies += combat->getEnemiesDefeated();
+			combatCount++;
+		}
 	}
 
-	return static_cast<double>(totalEnemies) / count;
+	if (combatCount == 0) return 0.0;
+	return static_cast<double>(totalEnemies) / combatCount;
 }
+
 
 // Calculate kill rate
-double calculateKillRate(const Session sessions[], int count) {
-	double totalHours = calculateTotalHours(sessions, count);
-	if (totalHours <= 0.0) return 0.0;
+double calculateKillRate(const PlaySession* sessions[], int count) {
+	int totalMinutes = calculateTotalDuration(sessions, count);
+	if (totalMinutes == 0) return 0.0;
 
-	int totalEnemies = 0;
-	for (int i = 0; i < count; i++) {
-		totalEnemies += sessions[i].enemiesDefeated;
-	}
-
-	return totalEnemies / totalHours;
+	int totalEnemies = calculateTotalEnemies(sessions, count);
+	return totalEnemies / (totalMinutes / 60.0);
 }
+
+
 
 // Calculate gold per hour
 double calculateGoldPerHour(double gold, double totalHours) {
@@ -418,34 +557,43 @@ Difficulty recommendDifficultyByStats(int level, double avgHours) {
 }
 
 // Calculate total enemies
-int calculateTotalEnemies(const Session sessions[], int count) {
-	if (count <= 0) return 0;
-
+int calculateTotalEnemies(const PlaySession* const sessions[], int count) {
 	int total = 0;
+
 	for (int i = 0; i < count; i++) {
-		total += sessions[i].enemiesDefeated;
+		const CombatSession* combat =
+			dynamic_cast<const CombatSession*>(sessions[i]);
+
+		if (combat) {
+			total += combat->getEnemiesDefeated();
+		}
 	}
 
 	return total;
 }
 
-// Find longest session
-double findLongestSession(const Session sessions[], int count) {
-	if (count <= 0) return 0.0;
 
-	double longest = sessions[0].hoursPlayed;
+
+// Find longest session
+double findLongestSession(const PlaySession* const sessions[], int count) {
+	if (count == 0) return 0.0;
+
+	int longest = sessions[0]->getDuration();
+
 	for (int i = 1; i < count; i++) {
-		if (sessions[i].hoursPlayed > longest) {
-			longest = sessions[i].hoursPlayed;
+		if (sessions[i]->getDuration() > longest) {
+			longest = sessions[i]->getDuration();
 		}
 	}
 
-	return longest;
+	return longest / 60.0; // hours
 }
 
 
+
+
 // File Output
-void saveReport(const Character& player, const Session sessions[], int count) {
+void saveReport(const Character& player, const PlaySession* sessions[], int count) {
 	ofstream outFile("report.txt");
 
 	outFile << "Baldur's Gate 3 - Adventure Report\n\n";
@@ -454,10 +602,10 @@ void saveReport(const Character& player, const Session sessions[], int count) {
 	outFile << fixed << setprecision(2);
 	outFile << "Gold: " << player.gold << "\n\n";
 
-	outFile << left << setw(20) << "Location" << setw(10) << "Hours" << setw(10) << "Enemies\n";
-
 	for (int i = 0; i < count; i++) {
-		outFile << left << setw(20) << sessions[i].location << setw(10) << sessions[i].hoursPlayed << setw(10) << sessions[i].enemiesDefeated << endl;
+		outFile << "Session " << i + 1 << ":\n";
+		sessions[i]->print();   // reuse polymorphism
+		outFile << "\n";
 	}
 
 	outFile.close();
@@ -466,105 +614,113 @@ void saveReport(const Character& player, const Session sessions[], int count) {
 
 
 
+
 #ifdef _DEBUG
 
 // ===================== UNIT TESTS =====================
 
-// ---------- A) Calculations (at least 4 tests) ----------
+// ---------- A) Constructors & Getters ----------
 
-TEST_CASE("calculateTotalHours normal case") {
-	Session sessions[2] = {
-		{"Goblin Camp", 2.5, 10},
-		{"Underdark", 3.0, 20}
-	};
+TEST_CASE("PlaySession constructor initializes base fields") {
+	PlaySession ps("Goblin Camp", 45, BALANCED);
 
-	double result = calculateTotalHours(sessions, 2);
-	CHECK(result == doctest::Approx(5.5));
+	CHECK(ps.getLocation() == "Goblin Camp");
+	CHECK(ps.getDuration() == 45);
+	CHECK(ps.getDifficulty() == BALANCED);
 }
 
-TEST_CASE("calculateTotalHours edge case - zero sessions") {
-	Session sessions[1];
-	double result = calculateTotalHours(sessions, 0);
-	CHECK(result == 0.0);
+TEST_CASE("LootInfo constructor and getters work") {
+	LootInfo loot(100, true);
+
+	CHECK(loot.getGoldEarned() == 100);
+	CHECK(loot.hasRareItem() == true);
 }
 
-TEST_CASE("calculateGoldPerHour normal case") {
-	double result = calculateGoldPerHour(100.0, 5.0);
-	CHECK(result == doctest::Approx(20.0));
-}
+TEST_CASE("LootInfo isProfitable helper method") {
+	LootInfo loot1(0, false);
+	LootInfo loot2(25, false);
 
-TEST_CASE("calculateGoldPerHour guard case - divide by zero") {
-	double result = calculateGoldPerHour(100.0, 0.0);
-	CHECK(result == 0.0);
+	CHECK(loot1.isProfitable() == false);
+	CHECK(loot2.isProfitable() == true);
 }
 
 
-// ---------- B) Enum decision logic (at least 3 tests) ----------
+// ---------- B) Derived Classes & Inheritance ----------
 
-TEST_CASE("recommendDifficultyByStats returns Explorer") {
-	Difficulty d = recommendDifficultyByStats(3, 5.0);
-	CHECK(d == EXPLORER);
+TEST_CASE("CombatSession initializes base and derived data") {
+	LootInfo loot(50, true);
+	CombatSession cs("Ruins", 30, TACTICIAN, 8, loot);
+
+	CHECK(cs.getLocation() == "Ruins");
+	CHECK(cs.getDuration() == 30);
+	CHECK(cs.getDifficulty() == TACTICIAN);
+	CHECK(cs.getEnemiesDefeated() == 8);
 }
 
-TEST_CASE("recommendDifficultyByStats returns Balanced") {
-	Difficulty d = recommendDifficultyByStats(6, 3.5);
-	CHECK(d == BALANCED);
-}
+TEST_CASE("ExplorationSession initializes base and derived data") {
+	LootInfo loot(20, false);
+	ExplorationSession es("Forest", 60, EXPLORER, 3, loot);
 
-TEST_CASE("recommendDifficultyByStats returns Tactician") {
-	Difficulty d = recommendDifficultyByStats(10, 6.0);
-	CHECK(d == TACTICIAN);
-}
-
-
-// ---------- C) Struct / array processing (at least 3 tests) ----------
-
-TEST_CASE("calculateTotalEnemies normal case") {
-	Session sessions[2] = {
-		{"Forest", 2.0, 5},
-		{"Dungeon", 3.0, 15}
-	};
-
-	int total = calculateTotalEnemies(sessions, 2);
-	CHECK(total == 20);
-}
-
-TEST_CASE("calculateAverageEnemies one session") {
-	Session sessions[1] = {
-		{"Ruins", 1.5, 12}
-	};
-
-	double avg = calculateAverageEnemies(sessions, 1);
-	CHECK(avg == doctest::Approx(12.0));
-}
-
-TEST_CASE("findLongestSession edge case - zero sessions") {
-	Session sessions[1];
-	double longest = findLongestSession(sessions, 0);
-	CHECK(longest == 0.0);
+	CHECK(es.getLocation() == "Forest");
+	CHECK(es.getDuration() == 60);
+	CHECK(es.getDifficulty() == EXPLORER);
+	CHECK(es.getAreasDiscovered() == 3);
 }
 
 
-// ---------- D) Class methods (at least 2 tests) ----------
+// ---------- C) Polymorphism & Array Processing ----------
 
-TEST_CASE("AdventureTracker addSession and getSessionCount") {
+TEST_CASE("calculateTotalEnemies counts only CombatSession objects") {
+	LootInfo loot(10, false);
+
+	PlaySession* sessions[3];
+	sessions[0] = new CombatSession("Camp", 30, BALANCED, 5, loot);
+	sessions[1] = new ExplorationSession("Cave", 40, BALANCED, 2, loot);
+	sessions[2] = new CombatSession("Tower", 50, TACTICIAN, 7, loot);
+
+	int total = calculateTotalEnemies(sessions, 3);
+	CHECK(total == 12);
+
+	// cleanup
+	for (int i = 0; i < 3; i++) delete sessions[i];
+}
+
+TEST_CASE("findLongestSession returns longest duration") {
+	LootInfo loot(0, false);
+
+	PlaySession* sessions[2];
+	sessions[0] = new CombatSession("Camp", 20, EXPLORER, 3, loot);
+	sessions[1] = new ExplorationSession("Forest", 90, BALANCED, 5, loot);
+
+	double longest = findLongestSession(sessions, 2);
+	CHECK(longest == 90);
+
+	for (int i = 0; i < 2; i++) delete sessions[i];
+}
+
+
+// ---------- D) Enum Decision Logic ----------
+
+TEST_CASE("recommendDifficultyByStats logic works") {
+	CHECK(recommendDifficultyByStats(3, 5.0) == EXPLORER);
+	CHECK(recommendDifficultyByStats(6, 3.5) == BALANCED);
+	CHECK(recommendDifficultyByStats(10, 6.0) == TACTICIAN);
+}
+
+
+// ---------- E) Class Method Tests ----------
+
+TEST_CASE("AdventureTracker addSession and count") {
 	AdventureTracker tracker;
 
-	Session s = { "Shadow Cursed Lands", 4.0, 30 };
-	bool added = tracker.addSession(s);
+	PlaySession* s = new CombatSession(
+		"Camp", 30, BALANCED, 4, LootInfo(10, false)
+	);
 
-	CHECK(added == true);
+	CHECK(tracker.addSession(s) == true);
 	CHECK(tracker.getSessionCount() == 1);
-}
 
-TEST_CASE("AdventureTracker getTotalHours") {
-	AdventureTracker tracker;
-
-	tracker.addSession({ "Camp", 2.0, 5 });
-	tracker.addSession({ "Tower", 3.5, 12 });
-
-	double total = tracker.getTotalHours();
-	CHECK(total == doctest::Approx(5.5));
+	delete s;
 }
 
 #endif
