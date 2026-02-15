@@ -3,7 +3,7 @@
   <Class Name="PlaySession">
     <Position X="5" Y="0.75" Width="3.75" />
     <TypeIdentifier>
-      <HashCode>AAYIAAABAAAAIRAAAACAAEACACAAAAACAAAAAAAAAAA=</HashCode>
+      <HashCode>AAYIAAABAAAAIRAAAACAAEACACAAEAACAAAAAAAAAAA=</HashCode>
       <FileName>main.cpp</FileName>
     </TypeIdentifier>
   </Class>
@@ -17,21 +17,21 @@
   <Class Name="CombatSession">
     <Position X="3.25" Y="5.25" Width="6.25" />
     <TypeIdentifier>
-      <HashCode>AARAAABgAAAAgAAAAAAAAAAAAAQAAAAAAAAAAAAAAAA=</HashCode>
+      <HashCode>AARAAABgAAAAgAAAAAAAAAAAAAQAEAAAAAAAAAAAAAA=</HashCode>
       <FileName>main.cpp</FileName>
     </TypeIdentifier>
   </Class>
   <Class Name="ExplorationSession">
     <Position X="10.25" Y="5.25" Width="6.25" />
     <TypeIdentifier>
-      <HashCode>AAQAAAAAAAgAgAQCAAAAAAAAAAAAAAAAIAAAAAAAAAA=</HashCode>
+      <HashCode>AAQAAAAAAAgAgAQCAAAAAAAAAAAAEAAAIAAAAAAAAAA=</HashCode>
       <FileName>main.cpp</FileName>
     </TypeIdentifier>
   </Class>
-  <Class Name="AdventureTracker">
-    <Position X="12" Y="0.75" Width="2.75" />
+  <Class Name="SessionManager">
+    <Position X="12" Y="0.75" Width="2.5" />
     <TypeIdentifier>
-      <HashCode>AAAAAAIAAAAAIAAAAAgACAAAAAIEAAAAAAAAAAAABAA=</HashCode>
+      <HashCode>AgAAAAAAAIAAIAAEAIoAQAAAAAAAAAAAAQAAAAACAAA=</HashCode>
       <FileName>main.cpp</FileName>
     </TypeIdentifier>
   </Class>

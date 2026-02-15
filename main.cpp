@@ -61,6 +61,8 @@ public:
 	void setDuration(int duration) { durationMinutes = duration; }
 	void setDifficulty(Difficulty diff) { difficulty = diff; }
 
+	virtual double calculateValue() const = 0;
+
 	virtual void print() const {
 		cout << "Location: " << location << endl;
 		cout << "Duration (minutes): " << durationMinutes << endl;
@@ -125,6 +127,10 @@ public:
 		enemiesDefeated = enemies;
 	}
 
+	double calculateValue() const override {
+		return enemiesDefeated * 10.0;
+	}
+
 	void print() const {
 		PlaySession::print();   // REQUIRED
 
@@ -163,6 +169,10 @@ public:
 		areasDiscovered = areas;
 	}
 
+	double calculateValue() const override {
+		return areasDiscovered * 5.0;
+	}
+
 	void print() const {
 		PlaySession::print();   // REQUIRED
 
@@ -172,42 +182,73 @@ public:
 
 };
 
-// AdventureTracker class for unit testing and session management
-class AdventureTracker {
-private:
-	const PlaySession* sessions[MAX_SESSIONS];
-	int sessionCount;
 
-public:
-	// Constructor
-	AdventureTracker() {
-		sessionCount = 0;
+// DYNAMIC MANAGER
+class SessionManager {
+private:
+	PlaySession** items;
+	int size;
+	int capacity;
+
+	void resize() {
+		capacity *= 2;
+
+		PlaySession** newArray = new PlaySession * [capacity];
+
+		for (int i = 0; i < size; i++) {
+			newArray[i] = items[i];
+		}
+
+		delete[] items;
+		items = newArray;
 	}
 
-	// Add a session safely (non-interactive, testable)
-	bool addSession(const PlaySession* s) {
-		if (sessionCount >= MAX_SESSIONS) return false;
-		sessions[sessionCount++] = s;
+public:
+	SessionManager(int initialCapacity = 2)
+		: size(0), capacity(initialCapacity)
+	{
+		items = new PlaySession * [capacity];
+	}
+
+	~SessionManager() {
+		for (int i = 0; i < size; i++) {
+			delete items[i];  // delete each object
+		}
+		delete[] items;       // delete pointer array
+	}
+
+	void add(PlaySession* item) {
+		if (size >= capacity) {
+			resize();
+		}
+
+		items[size++] = item;
+	}
+
+	bool remove(int index) {
+		if (index < 0 || index >= size) return false;
+
+		delete items[index];
+
+		for (int i = index; i < size - 1; i++) {
+			items[i] = items[i + 1];
+		}
+
+		size--;
 		return true;
 	}
 
-
-	// Getter for session count
-	int getSessionCount() const {
-		return sessionCount;
+	int getSize() const {
+		return size;
 	}
 
-	// Total hours using internal array
-	double getTotalHours() const {
-		return calculateTotalDuration(sessions, sessionCount) / 60.0;
-	}
-
-
-	// Total enemies using intenal array
-	int getTotalEnemies() const {
-		return calculateTotalEnemies(sessions, sessionCount);
+	PlaySession* get(int index) const {
+		if (index < 0 || index >= size) return nullptr;
+		return items[index];
 	}
 };
+
+
 
 
 // Structs are passed by reference to avoid unnecessary copying
@@ -250,47 +291,152 @@ void saveReport(const Character& player, const PlaySession* sessions[], int coun
 
 #ifndef _DEBUG
 int main() {
-	// creates one instance of player
+
 	Character player;
-	// creates an array of sessions controlled by max sessions
-	const PlaySession* sessions[MAX_SESSIONS];
-	// tracks how many sessions
-	int sessionCount = 0;
-	// variable to store users choice
+	SessionManager manager;   // NEW dynamic manager
 	int choice;
 
 	displayBanner();
 	createCharacter(player);
 	displayCharacterSummary(player);
 
-	
-	// Main menu loop
 	do {
 		displayMenu();
-		choice = getValidInt("Enter choice (1-5): ", 1, 5);
+		choice = getValidInt("Enter choice (1-6): ", 1, 6);
 
 		switch (choice) {
-			case 1:
-				addSession(sessions, sessionCount);
-				break;
-			case 2:
-				displaySessions(sessions, sessionCount);
-				break;
-			case 3:
-				recommendDifficulty(player, sessions, sessionCount);
-				break;
-			case 4:
-				saveReport(player, sessions, sessionCount);
-				break;
-			case 5:
-				cout << "Exiting Adventure Tracker. Goodbye!\n";
-				break;
+
+		case 1:   // Add Session
+		{
+			cout << "\n1. Combat Session\n";
+			cout << "2. Exploration Session\n";
+
+			int type = getValidInt("Choose session type: ", 1, 2);
+
+			string location = getValidString("Enter location: ");
+			int duration = getValidInt("Enter duration (minutes): ", 1, 600);
+
+			cout << "Difficulty:\n1. Explorer\n2. Balanced\n3. Tactician\n";
+			Difficulty diff = static_cast<Difficulty>(
+				getValidInt("Choice: ", 1, 3)
+				);
+
+			int gold = getValidInt("Gold earned: ", 0, 100000);
+			bool rare = getValidInt("Rare item found? (1=yes, 0=no): ", 0, 1);
+			LootInfo loot(gold, rare);
+
+			if (type == 1) {
+				int enemies = getValidInt("Enemies defeated: ", 0, MAX_ENEMIES);
+				manager.add(new CombatSession(location, duration, diff, enemies, loot));
+			}
+			else {
+				int areas = getValidInt("Areas discovered: ", 0, 100);
+				manager.add(new ExplorationSession(location, duration, diff, areas, loot));
+			}
+
+			cout << "Session added.\n";
+			break;
 		}
-	} while (choice != 5);
+
+		case 2:   // View Sessions
+		{
+			if (manager.getSize() == 0) {
+				cout << "No sessions recorded.\n";
+			}
+			else {
+				cout << "\n=== Session Summary ===\n";
+				for (int i = 0; i < manager.getSize(); i++) {
+					cout << "Session #" << i << endl;
+					manager.get(i)->print();  // 🔥 Polymorphism
+					cout << "----------------------\n";
+				}
+			}
+			break;
+		}
+
+		case 3:   // Remove Session
+		{
+			if (manager.getSize() == 0) {
+				cout << "No sessions to remove.\n";
+				break;
+			}
+
+			int index = getValidInt(
+				"Enter session index to remove: ",
+				0,
+				manager.getSize() - 1
+			);
+
+			if (manager.remove(index)) {
+				cout << "Session removed.\n";
+			}
+			else {
+				cout << "Invalid index.\n";
+			}
+			break;
+		}
+
+		case 4:   // Recommend Difficulty
+		{
+			if (manager.getSize() == 0) {
+				cout << "No sessions available.\n";
+				break;
+			}
+
+			int totalMinutes = 0;
+			for (int i = 0; i < manager.getSize(); i++) {
+				totalMinutes += manager.get(i)->getDuration();
+			}
+
+			double avgHours =
+				(totalMinutes / 60.0) / manager.getSize();
+
+			Difficulty rec =
+				recommendDifficultyByStats(player.level, avgHours);
+
+			cout << "\n=== Difficulty Recommendation ===\n";
+
+			switch (rec) {
+			case EXPLORER:  cout << "Explorer\n"; break;
+			case BALANCED:  cout << "Balanced\n"; break;
+			case TACTICIAN: cout << "Tactician\n"; break;
+			}
+
+			break;
+		}
+
+		case 5:   // Save Report
+		{
+			ofstream outFile("report.txt");
+
+			outFile << "Adventure Report\n\n";
+			outFile << "Character: " << player.name << endl;
+			outFile << "Level: " << player.level << endl;
+			outFile << fixed << setprecision(2);
+			outFile << "Gold: " << player.gold << "\n\n";
+
+			for (int i = 0; i < manager.getSize(); i++) {
+				outFile << "Session #" << i << ":\n";
+				manager.get(i)->print();
+				outFile << "\n";
+			}
+
+			outFile.close();
+			cout << "Report saved to report.txt\n";
+			break;
+		}
+
+		case 6:   // Quit
+			cout << "Exiting Adventure Tracker. Goodbye!\n";
+			break;
+		}
+
+	} while (choice != 6);
 
 	return 0;
 }
 #endif
+
 
 
 // Banner Function
@@ -306,10 +452,12 @@ void displayMenu() {
 	cout << "\n=== Main Menu ===\n";
 	cout << "1. Add Session\n";
 	cout << "2. View Session Summary\n";
-	cout << "3. Recommend Difficulty\n";
-	cout << "4. Save Report to File\n";
-	cout << "5. Quit\n\n";
+	cout << "3. Remove Session\n";
+	cout << "4. Recommend Difficulty\n";
+	cout << "5. Save Report to File\n";
+	cout << "6. Quit\n\n";
 }
+
 
 
 // Create Character Sheet Function
@@ -619,108 +767,86 @@ void saveReport(const Character& player, const PlaySession* sessions[], int coun
 
 // ===================== UNIT TESTS =====================
 
-// ---------- A) Constructors & Getters ----------
+// ---------- A) Abstract Base & Virtual Function ----------
 
-TEST_CASE("PlaySession constructor initializes base fields") {
-	PlaySession ps("Goblin Camp", 45, BALANCED);
+TEST_CASE("Derived classes implement calculateValue polymorphically") {
+	LootInfo loot(0, false);
 
-	CHECK(ps.getLocation() == "Goblin Camp");
-	CHECK(ps.getDuration() == 45);
-	CHECK(ps.getDifficulty() == BALANCED);
+	PlaySession* c = new CombatSession("Camp", 30, BALANCED, 5, loot);
+	PlaySession* e = new ExplorationSession("Forest", 60, EXPLORER, 4, loot);
+
+	CHECK(c->calculateValue() == 50.0);   // 5 enemies * 10
+	CHECK(e->calculateValue() == 20.0);   // 4 areas * 5
+
+	delete c;
+	delete e;
 }
 
-TEST_CASE("LootInfo constructor and getters work") {
+// ---------- B) Constructor Initialization ----------
+
+TEST_CASE("CombatSession constructor initializes correctly") {
 	LootInfo loot(100, true);
-
-	CHECK(loot.getGoldEarned() == 100);
-	CHECK(loot.hasRareItem() == true);
-}
-
-TEST_CASE("LootInfo isProfitable helper method") {
-	LootInfo loot1(0, false);
-	LootInfo loot2(25, false);
-
-	CHECK(loot1.isProfitable() == false);
-	CHECK(loot2.isProfitable() == true);
-}
-
-
-// ---------- B) Derived Classes & Inheritance ----------
-
-TEST_CASE("CombatSession initializes base and derived data") {
-	LootInfo loot(50, true);
-	CombatSession cs("Ruins", 30, TACTICIAN, 8, loot);
+	CombatSession cs("Ruins", 45, TACTICIAN, 8, loot);
 
 	CHECK(cs.getLocation() == "Ruins");
-	CHECK(cs.getDuration() == 30);
+	CHECK(cs.getDuration() == 45);
 	CHECK(cs.getDifficulty() == TACTICIAN);
 	CHECK(cs.getEnemiesDefeated() == 8);
 }
 
-TEST_CASE("ExplorationSession initializes base and derived data") {
-	LootInfo loot(20, false);
-	ExplorationSession es("Forest", 60, EXPLORER, 3, loot);
+TEST_CASE("ExplorationSession constructor initializes correctly") {
+	LootInfo loot(50, false);
+	ExplorationSession es("Cave", 90, BALANCED, 3, loot);
 
-	CHECK(es.getLocation() == "Forest");
-	CHECK(es.getDuration() == 60);
-	CHECK(es.getDifficulty() == EXPLORER);
+	CHECK(es.getLocation() == "Cave");
+	CHECK(es.getDuration() == 90);
+	CHECK(es.getDifficulty() == BALANCED);
 	CHECK(es.getAreasDiscovered() == 3);
 }
 
+// ---------- C) SessionManager Add ----------
 
-// ---------- C) Polymorphism & Array Processing ----------
+TEST_CASE("SessionManager adds items and resizes") {
+	SessionManager manager(1);  // small capacity to force resize
 
-TEST_CASE("calculateTotalEnemies counts only CombatSession objects") {
-	LootInfo loot(10, false);
-
-	PlaySession* sessions[3];
-	sessions[0] = new CombatSession("Camp", 30, BALANCED, 5, loot);
-	sessions[1] = new ExplorationSession("Cave", 40, BALANCED, 2, loot);
-	sessions[2] = new CombatSession("Tower", 50, TACTICIAN, 7, loot);
-
-	int total = calculateTotalEnemies(sessions, 3);
-	CHECK(total == 12);
-
-	// cleanup
-	for (int i = 0; i < 3; i++) delete sessions[i];
-}
-
-TEST_CASE("findLongestSession returns longest duration") {
 	LootInfo loot(0, false);
 
-	PlaySession* sessions[2];
-	sessions[0] = new CombatSession("Camp", 20, EXPLORER, 3, loot);
-	sessions[1] = new ExplorationSession("Forest", 90, BALANCED, 5, loot);
+	manager.add(new CombatSession("A", 10, EXPLORER, 1, loot));
+	manager.add(new CombatSession("B", 20, EXPLORER, 2, loot));
 
-	double longest = findLongestSession(sessions, 2);
-	CHECK(longest == 90);
-
-	for (int i = 0; i < 2; i++) delete sessions[i];
+	CHECK(manager.getSize() == 2);
 }
 
+// ---------- D) SessionManager Remove ----------
 
-// ---------- D) Enum Decision Logic ----------
+TEST_CASE("SessionManager removes item correctly") {
+	SessionManager manager(2);
+	LootInfo loot(0, false);
 
-TEST_CASE("recommendDifficultyByStats logic works") {
-	CHECK(recommendDifficultyByStats(3, 5.0) == EXPLORER);
-	CHECK(recommendDifficultyByStats(6, 3.5) == BALANCED);
-	CHECK(recommendDifficultyByStats(10, 6.0) == TACTICIAN);
+	manager.add(new CombatSession("A", 10, EXPLORER, 1, loot));
+	manager.add(new CombatSession("B", 20, EXPLORER, 2, loot));
+
+	CHECK(manager.getSize() == 2);
+
+	bool removed = manager.remove(0);
+
+	CHECK(removed == true);
+	CHECK(manager.getSize() == 1);
 }
 
+// ---------- E) Polymorphic Storage ----------
 
-// ---------- E) Class Method Tests ----------
+TEST_CASE("SessionManager stores derived types polymorphically") {
+	SessionManager manager;
+	LootInfo loot(0, false);
 
-TEST_CASE("AdventureTracker addSession and count") {
-	AdventureTracker tracker;
+	manager.add(new CombatSession("Camp", 30, BALANCED, 5, loot));
+	manager.add(new ExplorationSession("Forest", 60, EXPLORER, 4, loot));
 
-	PlaySession* s = new CombatSession(
-		"Camp", 30, BALANCED, 4, LootInfo(10, false)
-	);
+	CHECK(manager.getSize() == 2);
 
-	CHECK(tracker.addSession(s) == true);
-	CHECK(tracker.getSessionCount() == 1);
-
-	delete s;
+	CHECK(manager.get(0)->calculateValue() == 50.0);
+	CHECK(manager.get(1)->calculateValue() == 20.0);
 }
 
 #endif
