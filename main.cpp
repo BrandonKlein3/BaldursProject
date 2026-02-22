@@ -3,10 +3,16 @@
 #include "doctest.h"
 #endif
 
+#ifdef _DEBUG
+#define _CRTDBG_MAP_ALLOC
+#include <crtdbg.h>
+#endif
+
 #include <iostream>
 #include <iomanip>
 #include <string>
 #include <fstream>
+#include <sstream>
 
 using namespace std;
 
@@ -68,7 +74,14 @@ public:
 		cout << "Duration (minutes): " << durationMinutes << endl;
 	}
 
+	// Virtual toStream()
+	virtual void toStream(std::ostream& os) const {
+		os << location << " | Duration: " << durationMinutes;
+	}
+
 	virtual ~PlaySession() {}
+
+	
 };
 
 
@@ -140,6 +153,17 @@ public:
 			<< (loot.hasRareItem() ? "Yes" : "No") << endl;
 	}
 
+	bool operator==(const CombatSession& other) const {
+		return location == other.location &&
+			durationMinutes == other.durationMinutes &&
+			enemiesDefeated == other.enemiesDefeated;
+	}
+
+	// Override toStream in derived class
+	void toStream(std::ostream& os) const override {
+		os << "Combat at " << location
+			<< " | Enemies: " << enemiesDefeated;
+	}
 };
 
 
@@ -180,20 +204,27 @@ public:
 		cout << "Gold Earned: " << loot.getGoldEarned() << endl;
 	}
 
+	// Override toStream in derived class
+	void toStream(std::ostream& os) const override {
+		os << "Exploration at " << location
+			<< " | Areas: " << areasDiscovered;
+	}
+
 };
 
 
-// DYNAMIC MANAGER
-class SessionManager {
+// Neww Template Container / DELETE class SESSION MANAGER
+template <typename T>
+class DynamicArray {
 private:
-	PlaySession** items;
+	T* items;
 	int size;
 	int capacity;
 
 	void resize() {
 		capacity *= 2;
 
-		PlaySession** newArray = new PlaySession * [capacity];
+		T* newArray = new T[capacity];
 
 		for (int i = 0; i < size; i++) {
 			newArray[i] = items[i];
@@ -204,31 +235,27 @@ private:
 	}
 
 public:
-	SessionManager(int initialCapacity = 2)
+	DynamicArray(int initialCapacity = 2)
 		: size(0), capacity(initialCapacity)
 	{
-		items = new PlaySession * [capacity];
+		items = new T[capacity];
 	}
 
-	~SessionManager() {
-		for (int i = 0; i < size; i++) {
-			delete items[i];  // delete each object
-		}
-		delete[] items;       // delete pointer array
+	~DynamicArray() {
+		delete[] items;
 	}
 
-	void add(PlaySession* item) {
-		if (size >= capacity) {
-			resize();
+	void add(T item) {
+		if (this->size >= this->capacity) {
+			this->resize();
 		}
 
-		items[size++] = item;
+		this->items[this->size++] = item;
 	}
 
 	bool remove(int index) {
-		if (index < 0 || index >= size) return false;
-
-		delete items[index];
+		if (index < 0 || index >= size)
+			return false;
 
 		for (int i = index; i < size - 1; i++) {
 			items[i] = items[i + 1];
@@ -238,18 +265,26 @@ public:
 		return true;
 	}
 
+	T operator[](int index) const {
+		if (index < 0 || index >= size)
+			return T();
+		return items[index];
+	}
+
+	DynamicArray& operator+=(T item) {
+		add(item);
+		return *this;
+	}
+
+	DynamicArray& operator-=(int index) {
+		remove(index);
+		return *this;
+	}
+
 	int getSize() const {
 		return size;
 	}
-
-	PlaySession* get(int index) const {
-		if (index < 0 || index >= size) return nullptr;
-		return items[index];
-	}
 };
-
-
-
 
 // Structs are passed by reference to avoid unnecessary copying
 
@@ -284,16 +319,25 @@ double calculateAverageEnemies(const PlaySession* sessions[], int count);
 double calculateKillRate(const PlaySession* sessions[], int count);
 double findLongestSession(const PlaySession* const sessions[], int count);
 
+// Global operator
+std::ostream& operator<<(std::ostream& os, const PlaySession& session) {
+	session.toStream(os);  // polymorphic call
+	return os;
+}
 
 // File output
 void saveReport(const Character& player, const PlaySession* sessions[], int count);
 
+template <typename T>
+T addValues(T a, T b) {
+	return a + b;
+}
 
 #ifndef _DEBUG
 int main() {
 
 	Character player;
-	SessionManager manager;   // NEW dynamic manager
+	DynamicArray<PlaySession*> manager;
 	int choice;
 
 	displayBanner();
@@ -327,11 +371,11 @@ int main() {
 
 			if (type == 1) {
 				int enemies = getValidInt("Enemies defeated: ", 0, MAX_ENEMIES);
-				manager.add(new CombatSession(location, duration, diff, enemies, loot));
+				manager += new CombatSession(location, duration, diff, enemies, loot);
 			}
 			else {
 				int areas = getValidInt("Areas discovered: ", 0, 100);
-				manager.add(new ExplorationSession(location, duration, diff, areas, loot));
+				manager += new ExplorationSession(location, duration, diff, areas, loot);
 			}
 
 			cout << "Session added.\n";
@@ -347,7 +391,7 @@ int main() {
 				cout << "\n=== Session Summary ===\n";
 				for (int i = 0; i < manager.getSize(); i++) {
 					cout << "Session #" << i << endl;
-					manager.get(i)->print();  // 🔥 Polymorphism
+					manager[i]->print();  // polymorphism
 					cout << "----------------------\n";
 				}
 			}
@@ -367,7 +411,9 @@ int main() {
 				manager.getSize() - 1
 			);
 
-			if (manager.remove(index)) {
+			if (index >= 0 && index < manager.getSize()) {
+				delete manager[index];   // delete object
+				manager -= index;        // remove pointer
 				cout << "Session removed.\n";
 			}
 			else {
@@ -385,7 +431,7 @@ int main() {
 
 			int totalMinutes = 0;
 			for (int i = 0; i < manager.getSize(); i++) {
-				totalMinutes += manager.get(i)->getDuration();
+				totalMinutes += manager[i]->getDuration();
 			}
 
 			double avgHours =
@@ -417,7 +463,7 @@ int main() {
 
 			for (int i = 0; i < manager.getSize(); i++) {
 				outFile << "Session #" << i << ":\n";
-				manager.get(i)->print();
+				manager[i]->print();
 				outFile << "\n";
 			}
 
@@ -432,6 +478,14 @@ int main() {
 		}
 
 	} while (choice != 6);
+
+	for (int i = 0; i < manager.getSize(); i++) {
+		delete manager[i];
+	}
+
+	#ifdef _DEBUG
+	_CrtDumpMemoryLeaks();
+	#endif
 
 	return 0;
 }
@@ -804,49 +858,46 @@ TEST_CASE("ExplorationSession constructor initializes correctly") {
 	CHECK(es.getAreasDiscovered() == 3);
 }
 
-// ---------- C) SessionManager Add ----------
+// ---------- F) Equality Tests -----------------
 
-TEST_CASE("SessionManager adds items and resizes") {
-	SessionManager manager(1);  // small capacity to force resize
-
+TEST_CASE("CombatSession equality operator") {
 	LootInfo loot(0, false);
 
-	manager.add(new CombatSession("A", 10, EXPLORER, 1, loot));
-	manager.add(new CombatSession("B", 20, EXPLORER, 2, loot));
+	CombatSession a("Camp", 30, BALANCED, 5, loot);
+	CombatSession b("Camp", 30, BALANCED, 5, loot);
+	CombatSession c("Forest", 20, BALANCED, 2, loot);
 
-	CHECK(manager.getSize() == 2);
+	CHECK(a == b);
+	CHECK_FALSE(a == c);
 }
 
-// ---------- D) SessionManager Remove ----------
+// ---------- G) << Tests ------------------------
 
-TEST_CASE("SessionManager removes item correctly") {
-	SessionManager manager(2);
+TEST_CASE("operator<< outputs correctly") {
 	LootInfo loot(0, false);
+	CombatSession cs("Camp", 30, BALANCED, 5, loot);
 
-	manager.add(new CombatSession("A", 10, EXPLORER, 1, loot));
-	manager.add(new CombatSession("B", 20, EXPLORER, 2, loot));
+	std::ostringstream oss;
+	oss << cs;
 
-	CHECK(manager.getSize() == 2);
-
-	bool removed = manager.remove(0);
-
-	CHECK(removed == true);
-	CHECK(manager.getSize() == 1);
+	CHECK(oss.str() == "Combat at Camp | Enemies: 5");
 }
 
-// ---------- E) Polymorphic Storage ----------
+// ---------- H) [] Tests ------------------------
 
-TEST_CASE("SessionManager stores derived types polymorphically") {
-	SessionManager manager;
-	LootInfo loot(0, false);
+TEST_CASE("operator[] works with bounds checking") {
+	DynamicArray<int> arr;
+	arr += 10;
 
-	manager.add(new CombatSession("Camp", 30, BALANCED, 5, loot));
-	manager.add(new ExplorationSession("Forest", 60, EXPLORER, 4, loot));
+	CHECK(arr[0] == 10);
+	CHECK(arr[5] == 0);
+}
 
-	CHECK(manager.getSize() == 2);
+// ---------- I) Template Function Tests ----------
 
-	CHECK(manager.get(0)->calculateValue() == 50.0);
-	CHECK(manager.get(1)->calculateValue() == 20.0);
+TEST_CASE("function template works") {
+	CHECK(addValues(2, 3) == 5);
+	CHECK(addValues(1.5, 2.5) == 4.0);
 }
 
 #endif
