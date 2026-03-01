@@ -13,6 +13,7 @@
 #include <string>
 #include <fstream>
 #include <sstream>
+#include <stdexcept>
 
 using namespace std;
 
@@ -212,8 +213,14 @@ public:
 
 };
 
+// Exception Class
+class ContainerException : public std::runtime_error {
+public:
+	ContainerException(const std::string& message)
+		: std::runtime_error(message) {}
+};
 
-// Neww Template Container / DELETE class SESSION MANAGER
+// Neww Template Container
 template <typename T>
 class DynamicArray {
 private:
@@ -253,21 +260,22 @@ public:
 		this->items[this->size++] = item;
 	}
 
-	bool remove(int index) {
-		if (index < 0 || index >= size)
-			return false;
+	void remove(int index) {
+		if (index < 0 || index >= size) {
+			throw ContainerException("Invalid removal index.");
+		}
 
 		for (int i = index; i < size - 1; i++) {
 			items[i] = items[i + 1];
 		}
 
 		size--;
-		return true;
 	}
 
-	T operator[](int index) const {
-		if (index < 0 || index >= size)
-			return T();
+	T& operator[](int index) {
+		if (index < 0 || index >= size) {
+			throw ContainerException("Index out of bounds.");
+		}
 		return items[index];
 	}
 
@@ -411,13 +419,13 @@ int main() {
 				manager.getSize() - 1
 			);
 
-			if (index >= 0 && index < manager.getSize()) {
-				delete manager[index];   // delete object
-				manager -= index;        // remove pointer
+			try {
+				delete manager[index];  // delete object first
+				manager -= index;       // may throw
 				cout << "Session removed.\n";
 			}
-			else {
-				cout << "Invalid index.\n";
+			catch (const ContainerException& e) {
+				cout << "Error: " << e.what() << endl;
 			}
 			break;
 		}
@@ -885,12 +893,20 @@ TEST_CASE("operator<< outputs correctly") {
 
 // ---------- H) [] Tests ------------------------
 
-TEST_CASE("operator[] works with bounds checking") {
+TEST_CASE("operator[] throws on invalid index") {
 	DynamicArray<int> arr;
 	arr += 10;
 
 	CHECK(arr[0] == 10);
-	CHECK(arr[5] == 0);
+
+	CHECK_THROWS_AS(arr[5], ContainerException);
+}
+
+TEST_CASE("operator-= throws on invalid removal") {
+	DynamicArray<int> arr;
+	arr += 1;
+
+	CHECK_THROWS_AS(arr -= 5, ContainerException);
 }
 
 // ---------- I) Template Function Tests ----------
