@@ -14,6 +14,8 @@
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
+#include <vector>
+#include <algorithm>
 
 using namespace std;
 
@@ -220,77 +222,80 @@ public:
 		: std::runtime_error(message) {}
 };
 
-// Neww Template Container
-template <typename T>
-class DynamicArray {
+// Session Container replaces old template class
+class SessionContainer {
 private:
-	T* items;
-	int size;
-	int capacity;
-
-	void resize() {
-		capacity *= 2;
-
-		T* newArray = new T[capacity];
-
-		for (int i = 0; i < size; i++) {
-			newArray[i] = items[i];
-		}
-
-		delete[] items;
-		items = newArray;
-	}
+	std::vector<PlaySession*> items;
 
 public:
-	DynamicArray(int initialCapacity = 2)
-		: size(0), capacity(initialCapacity)
-	{
-		items = new T[capacity];
-	}
-
-	~DynamicArray() {
-		delete[] items;
-	}
-
-	void add(T item) {
-		if (this->size >= this->capacity) {
-			this->resize();
-		}
-
-		this->items[this->size++] = item;
+	void add(PlaySession* item) {
+		items.push_back(item);
 	}
 
 	void remove(int index) {
-		if (index < 0 || index >= size) {
+		if (index < 0 || index >= items.size()) {
 			throw ContainerException("Invalid removal index.");
 		}
 
-		for (int i = index; i < size - 1; i++) {
-			items[i] = items[i + 1];
-		}
-
-		size--;
+		delete items[index];
+		items.erase(items.begin() + index);
 	}
 
-	T& operator[](int index) {
-		if (index < 0 || index >= size) {
+	PlaySession* at(int index) {
+		if (index < 0 || index >= items.size()) {
 			throw ContainerException("Index out of bounds.");
 		}
-		return items[index];
+		return items.at(index);
 	}
 
-	DynamicArray& operator+=(T item) {
-		add(item);
-		return *this;
+	int size() const {
+		return items.size();
 	}
 
-	DynamicArray& operator-=(int index) {
-		remove(index);
-		return *this;
+	// -------- LINEAR SEARCH --------
+	int linearSearch(const string& location) {
+		for (int i = 0; i < items.size(); i++) {
+			if (items[i]->getLocation() == location) {
+				return i;
+			}
+		}
+		return -1;
 	}
 
-	int getSize() const {
-		return size;
+	// -------- BUBBLE SORT --------
+	void bubbleSortByDuration() {
+		for (int i = 0; i < items.size() - 1; i++) {
+			for (int j = 0; j < items.size() - i - 1; j++) {
+				if (items[j]->getDuration() > items[j + 1]->getDuration()) {
+					swap(items[j], items[j + 1]);
+				}
+			}
+		}
+	}
+
+	// -------- BINARY SEARCH --------
+	int binarySearchByDuration(int target) {
+		int low = 0;
+		int high = items.size() - 1;
+
+		while (low <= high) {
+			int mid = (low + high) / 2;
+
+			int value = items[mid]->getDuration();
+
+			if (value == target) return mid;
+			else if (value < target) low = mid + 1;
+			else high = mid - 1;
+		}
+
+		return -1;
+	}
+
+	// -------- DESTRUCTOR --------
+	~SessionContainer() {
+		for (int i = 0; i < items.size(); i++) {
+			delete items[i];
+		}
 	}
 };
 
@@ -345,7 +350,7 @@ T addValues(T a, T b) {
 int main() {
 
 	Character player;
-	DynamicArray<PlaySession*> manager;
+	SessionContainer manager;
 	int choice;
 
 	displayBanner();
@@ -354,7 +359,7 @@ int main() {
 
 	do {
 		displayMenu();
-		choice = getValidInt("Enter choice (1-6): ", 1, 6);
+		choice = getValidInt("Enter choice (1-9): ", 1, 9);
 
 		switch (choice) {
 
@@ -379,11 +384,11 @@ int main() {
 
 			if (type == 1) {
 				int enemies = getValidInt("Enemies defeated: ", 0, MAX_ENEMIES);
-				manager += new CombatSession(location, duration, diff, enemies, loot);
+				manager.add(new CombatSession(location, duration, diff, enemies, loot));
 			}
 			else {
 				int areas = getValidInt("Areas discovered: ", 0, 100);
-				manager += new ExplorationSession(location, duration, diff, areas, loot);
+				manager.add(new ExplorationSession(location, duration, diff, areas, loot));
 			}
 
 			cout << "Session added.\n";
@@ -392,14 +397,14 @@ int main() {
 
 		case 2:   // View Sessions
 		{
-			if (manager.getSize() == 0) {
+			if (manager.size() == 0) {
 				cout << "No sessions recorded.\n";
 			}
 			else {
 				cout << "\n=== Session Summary ===\n";
-				for (int i = 0; i < manager.getSize(); i++) {
+				for (int i = 0; i < manager.size(); i++) {
 					cout << "Session #" << i << endl;
-					manager[i]->print();  // polymorphism
+					manager.at(i)->print();  // polymorphism
 					cout << "----------------------\n";
 				}
 			}
@@ -408,7 +413,7 @@ int main() {
 
 		case 3:   // Remove Session
 		{
-			if (manager.getSize() == 0) {
+			if (manager.size() == 0) {
 				cout << "No sessions to remove.\n";
 				break;
 			}
@@ -416,12 +421,11 @@ int main() {
 			int index = getValidInt(
 				"Enter session index to remove: ",
 				0,
-				manager.getSize() - 1
+				manager.size() - 1
 			);
 
 			try {
-				delete manager[index];  // delete object first
-				manager -= index;       // may throw
+				manager.remove(index);       // Remove session by index
 				cout << "Session removed.\n";
 			}
 			catch (const ContainerException& e) {
@@ -432,18 +436,18 @@ int main() {
 
 		case 4:   // Recommend Difficulty
 		{
-			if (manager.getSize() == 0) {
+			if (manager.size() == 0) {
 				cout << "No sessions available.\n";
 				break;
 			}
 
 			int totalMinutes = 0;
-			for (int i = 0; i < manager.getSize(); i++) {
-				totalMinutes += manager[i]->getDuration();
+			for (int i = 0; i < manager.size(); i++) {
+				totalMinutes += manager.at(i)->getDuration();
 			}
 
 			double avgHours =
-				(totalMinutes / 60.0) / manager.getSize();
+				(totalMinutes / 60.0) / manager.size();
 
 			Difficulty rec =
 				recommendDifficultyByStats(player.level, avgHours);
@@ -469,9 +473,9 @@ int main() {
 			outFile << fixed << setprecision(2);
 			outFile << "Gold: " << player.gold << "\n\n";
 
-			for (int i = 0; i < manager.getSize(); i++) {
+			for (int i = 0; i < manager.size(); i++) {
 				outFile << "Session #" << i << ":\n";
-				manager[i]->print();
+				manager.at(i)->print();
 				outFile << "\n";
 			}
 
@@ -481,21 +485,50 @@ int main() {
 		}
 
 		case 6:   // Quit
+		{
 			cout << "Exiting Adventure Tracker. Goodbye!\n";
+			return 0;
+		}
+		case 7:
+		{
+			string loc = getValidString("Enter location: ");
+			int index = manager.linearSearch(loc);
+
+			if (index != -1)
+				cout << "Found at index: " << index << endl;
+			else
+				cout << "Not found.\n";
+
 			break;
 		}
+		case 8:
+		{
+			manager.bubbleSortByDuration();
+			cout << "Sorted.\n";
+			break;
+		}
+		case 9:
+		{
+			int target = getValidInt("Enter duration: ", 0, 1000);
 
-	} while (choice != 6);
+			manager.bubbleSortByDuration(); // REQUIRED
+			int index = manager.binarySearchByDuration(target);
 
-	for (int i = 0; i < manager.getSize(); i++) {
-		delete manager[i];
-	}
+			if (index != -1)
+				cout << "Found at index: " << index << endl;
+			else
+				cout << "Not found.\n";
 
-	#ifdef _DEBUG
-	_CrtDumpMemoryLeaks();
-	#endif
+			break;
+		}
+		}
+	} while (choice != 9);
 
-	return 0;
+		#ifdef _DEBUG
+		_CrtDumpMemoryLeaks();
+		#endif
+
+		return 0;
 }
 #endif
 
@@ -517,7 +550,10 @@ void displayMenu() {
 	cout << "3. Remove Session\n";
 	cout << "4. Recommend Difficulty\n";
 	cout << "5. Save Report to File\n";
-	cout << "6. Quit\n\n";
+	cout << "6. Quit\n";
+	cout << "7. Search by Location\n";
+	cout << "8. Sort by Duration\n";
+	cout << "9. Binary Search by Duration\n\n";
 }
 
 
@@ -829,24 +865,24 @@ void saveReport(const Character& player, const PlaySession* sessions[], int coun
 
 // ===================== UNIT TESTS =====================
 
-// ---------- A) Abstract Base & Virtual Function ----------
+// ---------- A) Polymorphism ----------
 
-TEST_CASE("Derived classes implement calculateValue polymorphically") {
+TEST_CASE("calculateValue works polymorphically") {
 	LootInfo loot(0, false);
 
 	PlaySession* c = new CombatSession("Camp", 30, BALANCED, 5, loot);
 	PlaySession* e = new ExplorationSession("Forest", 60, EXPLORER, 4, loot);
 
-	CHECK(c->calculateValue() == 50.0);   // 5 enemies * 10
-	CHECK(e->calculateValue() == 20.0);   // 4 areas * 5
+	CHECK(c->calculateValue() == 50.0);
+	CHECK(e->calculateValue() == 20.0);
 
 	delete c;
 	delete e;
 }
 
-// ---------- B) Constructor Initialization ----------
+// ---------- B) Constructors ----------
 
-TEST_CASE("CombatSession constructor initializes correctly") {
+TEST_CASE("CombatSession initializes correctly") {
 	LootInfo loot(100, true);
 	CombatSession cs("Ruins", 45, TACTICIAN, 8, loot);
 
@@ -856,7 +892,7 @@ TEST_CASE("CombatSession constructor initializes correctly") {
 	CHECK(cs.getEnemiesDefeated() == 8);
 }
 
-TEST_CASE("ExplorationSession constructor initializes correctly") {
+TEST_CASE("ExplorationSession initializes correctly") {
 	LootInfo loot(50, false);
 	ExplorationSession es("Cave", 90, BALANCED, 3, loot);
 
@@ -866,9 +902,9 @@ TEST_CASE("ExplorationSession constructor initializes correctly") {
 	CHECK(es.getAreasDiscovered() == 3);
 }
 
-// ---------- F) Equality Tests -----------------
+// ---------- C) Equality Operator ----------
 
-TEST_CASE("CombatSession equality operator") {
+TEST_CASE("CombatSession operator== works") {
 	LootInfo loot(0, false);
 
 	CombatSession a("Camp", 30, BALANCED, 5, loot);
@@ -879,9 +915,9 @@ TEST_CASE("CombatSession equality operator") {
 	CHECK_FALSE(a == c);
 }
 
-// ---------- G) << Tests ------------------------
+// ---------- D) Stream Operator ----------
 
-TEST_CASE("operator<< outputs correctly") {
+TEST_CASE("operator<< outputs correct string") {
 	LootInfo loot(0, false);
 	CombatSession cs("Camp", 30, BALANCED, 5, loot);
 
@@ -891,29 +927,82 @@ TEST_CASE("operator<< outputs correctly") {
 	CHECK(oss.str() == "Combat at Camp | Enemies: 5");
 }
 
-// ---------- H) [] Tests ------------------------
+// ---------- E) Container Add / Access ----------
 
-TEST_CASE("operator[] throws on invalid index") {
-	DynamicArray<int> arr;
-	arr += 10;
+TEST_CASE("SessionContainer stores and retrieves sessions") {
+	SessionContainer manager;
+	LootInfo loot(0, false);
 
-	CHECK(arr[0] == 10);
+	manager.add(new CombatSession("Camp", 30, BALANCED, 5, loot));
 
-	CHECK_THROWS_AS(arr[5], ContainerException);
+	CHECK(manager.size() == 1);
+	CHECK(manager.at(0)->getLocation() == "Camp");
 }
 
-TEST_CASE("operator-= throws on invalid removal") {
-	DynamicArray<int> arr;
-	arr += 1;
+// ---------- F) Exception Handling ----------
 
-	CHECK_THROWS_AS(arr -= 5, ContainerException);
+TEST_CASE("at() throws on invalid index") {
+	SessionContainer manager;
+
+	CHECK_THROWS_AS(manager.at(0), ContainerException);
 }
 
-// ---------- I) Template Function Tests ----------
+TEST_CASE("remove() throws on invalid index") {
+	SessionContainer manager;
+
+	CHECK_THROWS_AS(manager.remove(0), ContainerException);
+}
+
+// ---------- G) Linear Search ----------
+
+TEST_CASE("linearSearch finds correct index") {
+	SessionContainer manager;
+	LootInfo loot(0, false);
+
+	manager.add(new CombatSession("Camp", 30, BALANCED, 5, loot));
+	manager.add(new ExplorationSession("Forest", 60, EXPLORER, 3, loot));
+
+	CHECK(manager.linearSearch("Camp") == 0);
+	CHECK(manager.linearSearch("Forest") == 1);
+	CHECK(manager.linearSearch("Cave") == -1);
+}
+
+// ---------- H) Bubble Sort ----------
+
+TEST_CASE("bubbleSortByDuration sorts correctly") {
+	SessionContainer manager;
+	LootInfo loot(0, false);
+
+	manager.add(new CombatSession("A", 60, BALANCED, 5, loot));
+	manager.add(new CombatSession("B", 30, BALANCED, 5, loot));
+
+	manager.bubbleSortByDuration();
+
+	CHECK(manager.at(0)->getDuration() == 30);
+	CHECK(manager.at(1)->getDuration() == 60);
+}
+
+// ---------- I) Binary Search ----------
+
+TEST_CASE("binarySearchByDuration finds correct index") {
+	SessionContainer manager;
+	LootInfo loot(0, false);
+
+	manager.add(new CombatSession("A", 30, BALANCED, 5, loot));
+	manager.add(new CombatSession("B", 60, BALANCED, 5, loot));
+
+	manager.bubbleSortByDuration();
+
+	int index = manager.binarySearchByDuration(60);
+
+	CHECK(index != -1);
+	CHECK(manager.at(index)->getDuration() == 60);
+}
+
+// ---------- J) Template Function ----------
 
 TEST_CASE("function template works") {
 	CHECK(addValues(2, 3) == 5);
 	CHECK(addValues(1.5, 2.5) == 4.0);
 }
-
 #endif
