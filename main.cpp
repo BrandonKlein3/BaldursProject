@@ -281,14 +281,18 @@ public:
 		while (low <= high) {
 			int mid = (low + high) / 2;
 
-			int value = items[mid]->getDuration();
-
-			if (value == target) return mid;
-			else if (value < target) low = mid + 1;
-			else high = mid - 1;
+			if (items[mid]->getDuration() == target) {
+				return mid;
+			}
+			else if (items[mid]->getDuration() < target) {
+				low = mid + 1;
+			}
+			else {
+				high = mid - 1;
+			}
 		}
 
-		return -1;
+		return -1; // not found
 	}
 
 	// -------- DESTRUCTOR --------
