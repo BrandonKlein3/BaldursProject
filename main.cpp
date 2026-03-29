@@ -14,8 +14,6 @@
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
-#include <vector>
-#include <algorithm>
 
 using namespace std;
 
@@ -222,84 +220,186 @@ public:
 		: std::runtime_error(message) {}
 };
 
-// Session Container replaces old template class
-class SessionContainer {
+
+// ================= LINKED LIST =================
+class SessionLinkedList {
+public:
+	struct Node {
+		PlaySession* data;
+		Node* next;
+
+		Node(PlaySession* d) : data(d), next(nullptr) {}
+	};
+
 private:
-	std::vector<PlaySession*> items;
+	Node* head;
 
 public:
-	void add(PlaySession* item) {
-		items.push_back(item);
+	SessionLinkedList() : head(nullptr) {}
+
+	Node* getHead() {
+		return head;
 	}
 
-	void remove(int index) {
-		if (index < 0 || index >= items.size()) {
-			throw ContainerException("Invalid removal index.");
+	void insertFront(PlaySession* session) {
+		Node* newNode = new Node(session);
+		newNode->next = head;
+		head = newNode;
+	}
+
+	void insertBack(PlaySession* session) {
+		Node* newNode = new Node(session);
+
+		if (!head) {
+			head = newNode;
+			return;
 		}
 
-		delete items[index];
-		items.erase(items.begin() + index);
-	}
-
-	PlaySession* at(int index) {
-		if (index < 0 || index >= items.size()) {
-			throw ContainerException("Index out of bounds.");
+		Node* temp = head;
+		while (temp->next) {
+			temp = temp->next;
 		}
-		return items.at(index);
+
+		temp->next = newNode;
 	}
 
-	int size() const {
-		return items.size();
-	}
+	int search(const string& location) {
+		Node* temp = head;
+		int index = 0;
 
-	// -------- LINEAR SEARCH --------
-	int linearSearch(const string& location) {
-		for (int i = 0; i < items.size(); i++) {
-			if (items[i]->getLocation() == location) {
-				return i;
-			}
+		while (temp) {
+			if (temp->data->getLocation() == location)
+				return index;
+
+			temp = temp->next;
+			index++;
 		}
+
 		return -1;
 	}
 
-	// -------- BUBBLE SORT --------
-	void bubbleSortByDuration() {
-		for (int i = 0; i < items.size() - 1; i++) {
-			for (int j = 0; j < items.size() - i - 1; j++) {
-				if (items[j]->getDuration() > items[j + 1]->getDuration()) {
-					swap(items[j], items[j + 1]);
-				}
-			}
+	void remove(int index) {
+		if (!head)
+			throw ContainerException("List is empty");
+
+		if (index == 0) {
+			Node* temp = head;
+			head = head->next;
+			delete temp->data;
+			delete temp;
+			return;
+		}
+
+		Node* prev = head;
+		Node* curr = head->next;
+		int i = 1;
+
+		while (curr && i < index) {
+			prev = curr;
+			curr = curr->next;
+			i++;
+		}
+
+		if (curr) {
+			prev->next = curr->next;
+			delete curr->data;
+			delete curr;
 		}
 	}
 
-	// -------- BINARY SEARCH --------
-	int binarySearchByDuration(int target) {
-		int low = 0;
-		int high = items.size() - 1;
+	PlaySession* at(int index) {
+		Node* temp = head;
+		int i = 0;
 
-		while (low <= high) {
-			int mid = (low + high) / 2;
+		while (temp) {
+			if (i == index)
+				return temp->data;
 
-			if (items[mid]->getDuration() == target) {
-				return mid;
-			}
-			else if (items[mid]->getDuration() < target) {
-				low = mid + 1;
-			}
-			else {
-				high = mid - 1;
-			}
+			temp = temp->next;
+			i++;
 		}
 
-		return -1; // not found
+		return nullptr;
 	}
 
-	// -------- DESTRUCTOR --------
-	~SessionContainer() {
-		for (int i = 0; i < items.size(); i++) {
-			delete items[i];
+	int size() {
+		Node* temp = head;
+		int count = 0;
+
+		while (temp) {
+			count++;
+			temp = temp->next;
 		}
+
+		return count;
+	}
+
+	~SessionLinkedList() {
+		while (head) {
+			Node* temp = head;
+			head = head->next;
+			delete temp->data;
+			delete temp;
+		}
+	}
+};
+
+
+class ListIterator {
+private:
+	SessionLinkedList::Node* current;
+
+public:
+	ListIterator(SessionLinkedList::Node* start)
+		: current(start) {
+	}
+
+	bool hasNext() {
+		return current != nullptr;
+	}
+
+	void next() {
+		if (current) current = current->next;
+	}
+
+	PlaySession* getData() {
+		return current ? current->data : nullptr;
+	}
+};
+
+
+// Session Container replaces old template class
+class SessionContainer {
+private:
+	SessionLinkedList list;
+
+public:
+	void add(PlaySession* session) {
+		list.insertBack(session);
+	}
+
+	void remove(int index) {
+		list.remove(index);
+	}
+
+	PlaySession* at(int index) {
+		PlaySession* result = list.at(index);
+		if (!result)
+			throw ContainerException("Index out of bounds");
+		return result;
+	}
+
+	int size() {
+		return list.size();
+	}
+
+	SessionLinkedList::Node* getHead() {
+		return list.getHead();
+	}
+
+	// -------- LINEAR SEARCH --------
+	int linearSearch(const string& loc) {
+		return list.search(loc);
 	}
 };
 
@@ -405,11 +505,15 @@ int main() {
 				cout << "No sessions recorded.\n";
 			}
 			else {
-				cout << "\n=== Session Summary ===\n";
-				for (int i = 0; i < manager.size(); i++) {
+				ListIterator it(manager.getHead());
+
+				int i = 0;
+				while (it.hasNext()) {
 					cout << "Session #" << i << endl;
-					manager.at(i)->print();  // polymorphism
+					it.getData()->print();
 					cout << "----------------------\n";
+					it.next();
+					i++;
 				}
 			}
 			break;
@@ -505,28 +609,8 @@ int main() {
 
 			break;
 		}
-		case 8:
-		{
-			manager.bubbleSortByDuration();
-			cout << "Sorted.\n";
-			break;
 		}
-		case 9:
-		{
-			int target = getValidInt("Enter duration: ", 0, 1000);
-
-			manager.bubbleSortByDuration(); // REQUIRED
-			int index = manager.binarySearchByDuration(target);
-
-			if (index != -1)
-				cout << "Found at index: " << index << endl;
-			else
-				cout << "Not found.\n";
-
-			break;
-		}
-		}
-	} while (choice != 9);
+	} while (choice != 7);
 
 		#ifdef _DEBUG
 		_CrtDumpMemoryLeaks();
@@ -556,8 +640,6 @@ void displayMenu() {
 	cout << "5. Save Report to File\n";
 	cout << "6. Quit\n";
 	cout << "7. Search by Location\n";
-	cout << "8. Sort by Duration\n";
-	cout << "9. Binary Search by Duration\n\n";
 }
 
 
@@ -971,39 +1053,8 @@ TEST_CASE("linearSearch finds correct index") {
 	CHECK(manager.linearSearch("Cave") == -1);
 }
 
-// ---------- H) Bubble Sort ----------
 
-TEST_CASE("bubbleSortByDuration sorts correctly") {
-	SessionContainer manager;
-	LootInfo loot(0, false);
-
-	manager.add(new CombatSession("A", 60, BALANCED, 5, loot));
-	manager.add(new CombatSession("B", 30, BALANCED, 5, loot));
-
-	manager.bubbleSortByDuration();
-
-	CHECK(manager.at(0)->getDuration() == 30);
-	CHECK(manager.at(1)->getDuration() == 60);
-}
-
-// ---------- I) Binary Search ----------
-
-TEST_CASE("binarySearchByDuration finds correct index") {
-	SessionContainer manager;
-	LootInfo loot(0, false);
-
-	manager.add(new CombatSession("A", 30, BALANCED, 5, loot));
-	manager.add(new CombatSession("B", 60, BALANCED, 5, loot));
-
-	manager.bubbleSortByDuration();
-
-	int index = manager.binarySearchByDuration(60);
-
-	CHECK(index != -1);
-	CHECK(manager.at(index)->getDuration() == 60);
-}
-
-// ---------- J) Template Function ----------
+// ---------- H) Template Function ----------
 
 TEST_CASE("function template works") {
 	CHECK(addValues(2, 3) == 5);
