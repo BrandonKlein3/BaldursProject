@@ -1,10 +1,8 @@
-Baldur's Gate 3 - Adventure Report
+Adventure Report
 
-Character: Brandon Klein
-Level: 12
-Gold: 5000.00
+Character: Nicholas Pride
+Level: 1
+Gold: 1.00
 
-Session 1:
-
-Session 2:
+Session #0:
 
