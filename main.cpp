@@ -8,6 +8,7 @@
 #include <crtdbg.h>
 #endif
 
+#include <map>
 #include <iostream>
 #include <iomanip>
 #include <string>
@@ -372,14 +373,29 @@ public:
 class SessionContainer {
 private:
 	SessionLinkedList list;
+	std::map<std::string, PlaySession*> sessionMap;
 
 public:
 	void add(PlaySession* session) {
 		list.insertBack(session);
+		sessionMap[session->getLocation()] = session;
 	}
 
 	void remove(int index) {
+		PlaySession* session = list.at(index);
+
+		if (session) {
+			sessionMap.erase(session->getLocation());
+		}
+
 		list.remove(index);
+	}
+
+	PlaySession* findByLocationMap(const std::string& loc) { //new
+		auto it = sessionMap.find(loc);
+		if (it != sessionMap.end())
+			return it->second;
+		return nullptr;
 	}
 
 	PlaySession* at(int index) {
@@ -600,10 +616,11 @@ int main() {
 		case 7:
 		{
 			string loc = getValidString("Enter location: ");
-			int index = manager.linearSearch(loc);
+			PlaySession* result = manager.findByLocationMap(loc);
 
-			if (index != -1)
-				cout << "Found at index: " << index << endl;
+			if (result)
+				cout << "Found session at location: "
+				<< result->getLocation() << endl; // week 12 new
 			else
 				cout << "Not found.\n";
 
@@ -1051,8 +1068,21 @@ TEST_CASE("linearSearch finds correct index") {
 	CHECK(manager.linearSearch("Camp") == 0);
 	CHECK(manager.linearSearch("Forest") == 1);
 	CHECK(manager.linearSearch("Cave") == -1);
+
 }
 
+TEST_CASE("map lookup works") {
+	SessionContainer manager;
+	LootInfo loot(0, false);
+
+	manager.add(new CombatSession("Camp", 30, BALANCED, 5, loot));
+
+	PlaySession* found = manager.findByLocationMap("Camp");
+	CHECK(found != nullptr);
+	CHECK(found->getLocation() == "Camp");
+
+	CHECK(manager.findByLocationMap("Forest") == nullptr);
+}
 
 // ---------- H) Template Function ----------
 
