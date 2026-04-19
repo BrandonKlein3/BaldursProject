@@ -20,7 +20,7 @@ using namespace std;
 // Goal: Track player character and multiple play sessions while practicing C++ fundamentals
 
 // Constants
-// Avoids magic numbers and improves readability.
+// Avoids magic numbers and improves readability
 const int MAX_SESSIONS = 10;
 const int MIN_LEVEL = 1;
 const int MAX_LEVEL = 12;
