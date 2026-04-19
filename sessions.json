@@ -1,0 +1,47 @@
+[
+  {
+    "type": "combat",
+    "location": "Nautiloid Crash Site",
+    "durationMinutes": 35,
+    "difficulty": "Balanced",
+    "goldEarned": 48,
+    "rareItemFound": false,
+    "enemiesDefeated": 6
+  },
+  {
+    "type": "exploration",
+    "location": "Emerald Grove",
+    "durationMinutes": 50,
+    "difficulty": "Explorer",
+    "goldEarned": 22,
+    "rareItemFound": true,
+    "areasDiscovered": 4
+  },
+  {
+    "type": "combat",
+    "location": "Goblin Camp",
+    "durationMinutes": 70,
+    "difficulty": "Tactician",
+    "goldEarned": 95,
+    "rareItemFound": true,
+    "enemiesDefeated": 14
+  },
+  {
+    "type": "exploration",
+    "location": "Underdark",
+    "durationMinutes": 80,
+    "difficulty": "Balanced",
+    "goldEarned": 41,
+    "rareItemFound": false,
+    "areasDiscovered": 5
+  },
+  {
+    "type": "combat",
+    "location": "Moonrise Towers",
+    "durationMinutes": 65,
+    "difficulty": "Tactician",
+    "goldEarned": 120,
+    "rareItemFound": true,
+    "enemiesDefeated": 11
+  }
+]

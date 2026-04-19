@@ -14,13 +14,19 @@
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
+#include <cstdio>
+
+// DN: official single header JSON library 
+#include "json.hpp"
 
 using namespace std;
+// DN: short alias so the JSON code stays readable in one file project code.
+using json = nlohmann::json;
 
 // Goal: Track player character and multiple play sessions while practicing C++ fundamentals
 
 // Constants
-// Avoids magic numbers and improves readability
+// Avoids magic numbers and improves readability.
 const int MAX_SESSIONS = 10;
 const int MIN_LEVEL = 1;
 const int MAX_LEVEL = 12;
@@ -426,6 +432,12 @@ double getValidDouble(const string& prompt, double min);
 void recommendDifficulty(const Character& player, const PlaySession* sessions[], int count);
 double calculateGoldPerHour(double gold, double totalHours);
 
+// DN: Converts JSON text into the program's existing difficulty enum.
+Difficulty parseDifficultyFromJson(const string& difficultyText);
+
+// DN: Reads session objects from disk and pushes them into the existing linked list container.
+int loadSessionsFromJson(const string& fileName, SessionContainer& manager);
+
 // Enum-based recommendation (testable)
 Difficulty recommendDifficultyByStats(int level, double avgHours);
 
@@ -456,6 +468,15 @@ int main() {
 	Character player;
 	SessionContainer manager;
 	int choice;
+
+	// DN: Preloads starter session data from JSON so the linked list has real data at runtime.
+	try {
+		int loadedCount = loadSessionsFromJson("sessions.json", manager);
+		cout << loadedCount << " sessions loaded from JSON.\n\n";
+	}
+	catch (const exception& e) {
+		cout << "JSON load skipped: " << e.what() << "\n\n";
+	}
 
 	displayBanner();
 	createCharacter(player);
@@ -640,6 +661,7 @@ void displayMenu() {
 	cout << "5. Save Report to File\n";
 	cout << "6. Quit\n";
 	cout << "7. Search by Location\n";
+	cout << "JSON sessions load automatically when the program starts.\n";
 }
 
 
@@ -872,6 +894,83 @@ double calculateGoldPerHour(double gold, double totalHours) {
 	return gold / totalHours;
 }
 
+// DN: Matches JSON difficulty text to the enum the rest of the program already uses.
+Difficulty parseDifficultyFromJson(const string& difficultyText) {
+	if (difficultyText == "Explorer") {
+		return EXPLORER;
+	}
+	if (difficultyText == "Balanced") {
+		return BALANCED;
+	}
+	if (difficultyText == "Tactician") {
+		return TACTICIAN;
+	}
+
+	throw runtime_error("Unknown difficulty in JSON: " + difficultyText);
+}
+
+// DN: File I/O plus JSON parsing that feeds the existing session container.
+int loadSessionsFromJson(const string& fileName, SessionContainer& manager) {
+	try {
+		ifstream inputFile(fileName);
+		if (!inputFile) {
+			throw runtime_error("Could not open JSON file: " + fileName);
+		}
+
+		json sessionData;
+		inputFile >> sessionData;
+
+		if (!sessionData.is_array()) {
+			throw runtime_error("JSON root must be an array.");
+		}
+
+		int loadedCount = 0;
+
+		for (const auto& session : sessionData) {
+			string type = session.at("type").get<string>();
+			string location = session.at("location").get<string>();
+			int duration = session.at("durationMinutes").get<int>();
+			Difficulty difficulty = parseDifficultyFromJson(
+				session.at("difficulty").get<string>()
+			);
+			LootInfo loot(
+				session.at("goldEarned").get<int>(),
+				session.at("rareItemFound").get<bool>()
+			);
+
+			// DN: Each JSON object becomes an existing session object that is stored in SessionContainer.
+			if (type == "combat") {
+				manager.add(new CombatSession(
+					location,
+					duration,
+					difficulty,
+					session.at("enemiesDefeated").get<int>(),
+					loot
+				));
+			}
+			else if (type == "exploration") {
+				manager.add(new ExplorationSession(
+					location,
+					duration,
+					difficulty,
+					session.at("areasDiscovered").get<int>(),
+					loot
+				));
+			}
+			else {
+				throw runtime_error("Unknown session type in JSON: " + type);
+			}
+
+			loadedCount++;
+		}
+
+		return loadedCount;
+	}
+	catch (const json::exception& e) {
+		throw runtime_error("Malformed JSON in " + fileName + ": " + e.what());
+	}
+}
+
 // Recommend difficulty by stats
 Difficulty recommendDifficultyByStats(int level, double avgHours) {
 	if (level < 5 && avgHours > 4.0) {
@@ -1059,5 +1158,36 @@ TEST_CASE("linearSearch finds correct index") {
 TEST_CASE("function template works") {
 	CHECK(addValues(2, 3) == 5);
 	CHECK(addValues(1.5, 2.5) == 4.0);
+}
+
+// DN: Proves JSON data becomes real session objects inside the linked list manager.
+TEST_CASE("JSON file loads sessions into the existing container") {
+	SessionContainer manager;
+
+	CHECK(loadSessionsFromJson("sessions.json", manager) == 5);
+	CHECK(manager.size() == 5);
+	CHECK(manager.at(0)->getLocation() == "Nautiloid Crash Site");
+	CHECK(dynamic_cast<CombatSession*>(manager.at(0)) != nullptr);
+	CHECK(dynamic_cast<ExplorationSession*>(manager.at(1)) != nullptr);
+}
+
+// DN: Covers the missing file edge case 
+TEST_CASE("JSON loader throws when the file is missing") {
+	SessionContainer manager;
+
+	CHECK_THROWS_AS(loadSessionsFromJson("missing_sessions.json", manager), runtime_error);
+}
+
+// DN: Covers the malformed JSON edge case
+TEST_CASE("JSON loader throws when the file is malformed") {
+	const string badFileName = "bad_sessions.json";
+	ofstream badFile(badFileName);
+	badFile << "[{ \"type\": \"combat\", ";
+	badFile.close();
+
+	SessionContainer manager;
+
+	CHECK_THROWS_AS(loadSessionsFromJson(badFileName, manager), runtime_error);
+	std::remove(badFileName.c_str());
 }
 #endif
