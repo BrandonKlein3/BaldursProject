@@ -23,6 +23,8 @@
 #include <limits>
 
 using namespace std;
+// DN: short alias so the JSON code stays readable in one file project code.
+using json = nlohmann::json;
 
 // Goal: Track player character and multiple play sessions while practicing C++ fundamentals
 
@@ -626,6 +628,37 @@ TEST_CASE("Queue operations") {
     CHECK(q.isEmpty());
 
     CHECK_THROWS(q.dequeue());
+}
+
+// DN: Proves JSON data becomes real session objects inside the linked list manager.
+TEST_CASE("JSON file loads sessions into the existing container") {
+	SessionContainer manager;
+
+	CHECK(loadSessionsFromJson("sessions.json", manager) == 5);
+	CHECK(manager.size() == 5);
+	CHECK(manager.at(0)->getLocation() == "Nautiloid Crash Site");
+	CHECK(dynamic_cast<CombatSession*>(manager.at(0)) != nullptr);
+	CHECK(dynamic_cast<ExplorationSession*>(manager.at(1)) != nullptr);
+}
+
+// DN: Covers the missing file edge case 
+TEST_CASE("JSON loader throws when the file is missing") {
+	SessionContainer manager;
+
+	CHECK_THROWS_AS(loadSessionsFromJson("missing_sessions.json", manager), runtime_error);
+}
+
+// DN: Covers the malformed JSON edge case
+TEST_CASE("JSON loader throws when the file is malformed") {
+	const string badFileName = "bad_sessions.json";
+	ofstream badFile(badFileName);
+	badFile << "[{ \"type\": \"combat\", ";
+	badFile.close();
+
+	SessionContainer manager;
+
+	CHECK_THROWS_AS(loadSessionsFromJson(badFileName, manager), runtime_error);
+	std::remove(badFileName.c_str());
 }
 #endif
 
